@@ -1,0 +1,192 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  background: #0a0a0f;
+  color: #e5e7eb;
+  min-width: 320px;
+  max-width: 360px;
+}
+
+.popup {
+  padding: 16px;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  border-radius: 10px;
+}
+
+.logo-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: white;
+}
+
+.logo-sub {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.section {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+/* Countdown */
+.countdown-section {
+  background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(79,70,229,0.1));
+  border-color: rgba(124,58,237,0.2);
+}
+
+.countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.countdown-unit {
+  text-align: center;
+  min-width: 48px;
+}
+
+.countdown-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.countdown-label {
+  font-size: 9px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.countdown-sep {
+  font-size: 20px;
+  font-weight: 700;
+  color: #7c3aed;
+  margin-bottom: 12px;
+}
+
+/* Focus time */
+.focus-time {
+  font-size: 26px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+}
+
+/* Todos */
+.todos-list {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 13px;
+}
+
+.todo-item:last-child {
+  border-bottom: none;
+}
+
+.todo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.todo-dot.done {
+  background: #10b981;
+}
+
+.todo-dot.pending {
+  background: rgba(255,255,255,0.2);
+}
+
+.todo-text {
+  color: #d1d5db;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.todo-text.done {
+  text-decoration: line-through;
+  color: #4b5563;
+}
+
+.loading {
+  color: #4b5563;
+  font-size: 12px;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.open-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 4px;
+}
+
+.open-btn:hover {
+  opacity: 0.85;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GATE 2027 Prep</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="popup">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">📚</div>
+        <div>
+          <div class="logo-title">GATE 2027</div>
+          <div class="logo-sub">Prep Tracker</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Countdown -->
+    <div class="section countdown-section">
+      <div class="section-label">⏳ Time Until GATE 2027</div>
+      <div class="countdown">
+        <div class="countdown-unit">
+          <div class="countdown-value" id="days">--</div>
+          <div class="countdown-label">Days</div>
+        </div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit">
+          <div class="countdown-value" id="hours">--</div>
+          <div class="countdown-label">Hrs</div>
+        </div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit">
+          <div class="countdown-value" id="mins">--</div>
+          <div class="countdown-label">Min</div>
+        </div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit">
+          <div class="countdown-value" id="secs">--</div>
+          <div class="countdown-label">Sec</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's Focus Time -->
+    <div class="section">
+      <div class="section-label">🎯 Today's Focus Time</div>
+      <div class="focus-time" id="focus-time">Loading...</div>
+    </div>
+
+    <!-- Todos -->
+    <div class="section">
+      <div class="section-label">📋 Today's Todos</div>
+      <div id="todos-list" class="todos-list">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Open App Button -->
+    <button class="open-btn" id="open-app">
+      🚀 Open Study Dashboard
+    </button>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("postgresql://neondb_owner:npg_KEOWbT7tDBJ1@ep-steep-mode-at1yj8hs.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require")
+}
+
+model User {
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  hashedPassword String?
+  image          String?
+  emailVerified  DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  sessions       StudySession[]
+  todos          TodoItem[]
+  syllabusItems  SyllabusItem[]
+  focusState     FocusTimerState?
+  accounts       Account[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model StudySession {
+  id              String   @id @default(cuid())
+  userId          String
+  subject         String
+  startTime       DateTime
+  endTime         DateTime
+  durationMinutes Int
+  date            String   // "YYYY-MM-DD" in IST for easy date grouping
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId])
+}
+
+model TodoItem {
+  id           String     @id @default(cuid())
+  userId       String
+  text         String
+  targetDetail String?
+  isCompleted  Boolean    @default(false)
+  date         String     // "YYYY-MM-DD" in IST
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       TodoItem?  @relation("TodoParentChild", fields: [parentId], references: [id], onDelete: Cascade)
+  subItems     TodoItem[] @relation("TodoParentChild")
+
+  @@index([userId, date])
+}
+
+model SyllabusItem {
+  id          String         @id @default(cuid())
+  userId      String
+  subject     String
+  itemName    String
+  itemType    String         // "Lecture" | "Weekly Quiz" | "Chapter Test"
+  notes       String?
+  isCompleted Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      SyllabusItem?  @relation("SyllabusParentChild", fields: [parentId], references: [id], onDelete: Cascade)
+  subItems    SyllabusItem[] @relation("SyllabusParentChild")
+
+  @@index([userId, subject])
+  @@index([userId])
+}
+
+model FocusTimerState {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  isRunning      Boolean   @default(false)
+  startTime      DateTime?
+  currentSubject String?
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
