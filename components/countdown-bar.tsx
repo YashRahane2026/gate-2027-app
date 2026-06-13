@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { GATE_EXAM_DATE } from "@/lib/config";
 import { useFocusStore } from "@/lib/use-focus-store";
 import { formatDuration } from "@/lib/utils";
+import { Menu } from "lucide-react";
+import { useUIStore } from "@/lib/use-ui-store";
 
 interface TimeLeft {
   days: number;
@@ -46,6 +48,7 @@ function Separator() {
 export function CountdownBar() {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(getTimeLeft());
   const { isRunning, isPaused, startTime, accumulatedSeconds, currentSubject, load } = useFocusStore();
+  const { toggleMobileSidebar } = useUIStore();
   const [focusSeconds, setFocusSeconds] = useState(0);
 
   // Load store state on mount
@@ -86,6 +89,13 @@ export function CountdownBar() {
     <div className="fixed top-0 left-0 right-0 z-50 h-12 bg-[#0d0d18]/95 backdrop-blur-md border-b border-white/[0.07] flex items-center justify-between px-4 sm:px-6">
       {/* Left section: App Brand/Pill */}
       <div className="flex items-center gap-2">
+        <button
+          onClick={toggleMobileSidebar}
+          className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white md:hidden mr-1"
+          aria-label="Toggle Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
         <span className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-widest font-medium hidden sm:block">
           GATE 2027
         </span>
