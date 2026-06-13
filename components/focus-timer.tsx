@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Play, Pause, Square, Timer } from "lucide-react";
 import { formatDuration, cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { Todo } from "@/types/todo";
+import { useFocusStore } from "@/lib/use-focus-store";
 
 interface FocusTimerProps {
   todos: Todo[];
@@ -13,31 +14,66 @@ interface FocusTimerProps {
 }
 
 export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTimerProps) {
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  const {
+    isRunning,
+    isPaused,
+    startTime,
+    accumulatedSeconds,
+    currentSubject,
+    selectedSubject: storeSelectedSubject,
+    customSubject: storeCustomSubject,
+    start,
+    pause,
+    resume,
+    stop,
+    load,
+    setTodayMinutes,
+  } = useFocusStore();
+
+  const [displaySeconds, setDisplaySeconds] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [customSubject, setCustomSubject] = useState("");
-  const [startTime, setStartTime] = useState<Date | null>(null);
   const { toast } = useToast();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const clearTimer = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-  }, []);
-
-  const startTimer = useCallback(() => {
-    clearTimer();
-    intervalRef.current = setInterval(() => {
-      setSeconds((s) => s + 1);
-    }, 1000);
-  }, [clearTimer]);
-
+  // Sync today's minutes from prop to store
   useEffect(() => {
-    return () => clearTimer();
-  }, [clearTimer]);
+    setTodayMinutes(todayMinutes);
+  }, [todayMinutes, setTodayMinutes]);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Sync input fields when loading an already running timer
+  useEffect(() => {
+    if (isRunning) {
+      setSelectedSubject(storeSelectedSubject);
+      setCustomSubject(storeCustomSubject);
+    }
+  }, [isRunning, storeSelectedSubject, storeCustomSubject]);
+
+  // Smooth timer updates that handle browser throttling & absolute time calculation
+  useEffect(() => {
+    const updateTime = () => {
+      if (!isRunning) {
+        setDisplaySeconds(0);
+      } else if (isPaused) {
+        setDisplaySeconds(accumulatedSeconds);
+      } else if (startTime) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        setDisplaySeconds(accumulatedSeconds + elapsed);
+      }
+    };
+
+    updateTime(); // Run immediately
+
+    if (isRunning && !isPaused) {
+      const interval = setInterval(updateTime, 250); // Tick frequently to keep accurate display
+      return () => clearInterval(interval);
+    }
+  }, [isRunning, isPaused, startTime, accumulatedSeconds]);
 
   const handleStart = () => {
     setShowModal(true);
@@ -50,46 +86,35 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTime
       return;
     }
     setShowModal(false);
-    setIsRunning(true);
-    setIsPaused(false);
-    setStartTime(new Date());
-    setSeconds(0);
-    startTimer();
+    start(subject, selectedSubject, customSubject);
   };
 
   const handlePause = () => {
     if (isPaused) {
-      startTimer();
-      setIsPaused(false);
+      resume();
     } else {
-      clearTimer();
-      setIsPaused(true);
+      pause();
     }
   };
 
   const handleStop = async () => {
-    clearTimer();
-    const endTime = new Date();
-    const durationMinutes = Math.floor(seconds / 60);
+    const elapsedSeconds = accumulatedSeconds + (startTime ? Math.floor((Date.now() - startTime) / 1000) : 0);
+    const durationMinutes = Math.floor(elapsedSeconds / 60);
 
     if (durationMinutes < 1) {
       toast({ title: "Session too short", description: "Minimum 1 minute to save a session." });
-      setIsRunning(false);
-      setIsPaused(false);
-      setSeconds(0);
+      stop();
       return;
     }
-
-    const subject = selectedSubject === "__custom__" ? customSubject : selectedSubject;
 
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject,
-          startTime: startTime!.toISOString(),
-          endTime: endTime.toISOString(),
+          subject: currentSubject,
+          startTime: new Date(startTime || Date.now() - elapsedSeconds * 1000).toISOString(),
+          endTime: new Date().toISOString(),
           durationMinutes,
         }),
       });
@@ -97,7 +122,7 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTime
       if (res.ok) {
         toast({
           title: "🎉 Session saved!",
-          description: `${durationMinutes}m of ${subject} recorded.`,
+          description: `${durationMinutes}m of ${currentSubject} recorded.`,
         });
         onSessionComplete();
       }
@@ -105,20 +130,16 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTime
       toast({ title: "Failed to save session", variant: "destructive" });
     }
 
-    setIsRunning(false);
-    setIsPaused(false);
-    setSeconds(0);
+    stop();
     setSelectedSubject("");
     setCustomSubject("");
-    setStartTime(null);
   };
 
   const activeTodos = todos.filter((t) => !t.isCompleted && t.parentId === null);
-  const currentSubject = selectedSubject === "__custom__" ? customSubject : selectedSubject;
 
   return (
     <>
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-full">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-full flex flex-col justify-between">
         <div className="flex items-center gap-2 mb-6">
           <Timer className="w-5 h-5 text-violet-400" />
           <h2 className="text-lg font-semibold text-white">Focus Timer</h2>
@@ -143,10 +164,10 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTime
             )}
             <div className="text-center">
               <div className="text-4xl font-mono font-bold text-white">
-                {formatDuration(seconds)}
+                {formatDuration(displaySeconds)}
               </div>
               {isRunning && (
-                <div className="text-xs text-gray-400 mt-1 max-w-[120px] truncate text-center">
+                <div className="text-xs text-gray-400 mt-1 max-w-[120px] truncate text-center mx-auto">
                   {currentSubject}
                 </div>
               )}
