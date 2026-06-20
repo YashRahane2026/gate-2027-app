@@ -135,6 +135,7 @@ export async function GET() {
     today: { totalMinutes: todayData.totalMinutes, sessions: todayData.sessions },
     weekMinutes,
     monthMinutes,
+    totalMinutes: allSessions.reduce((sum, s) => sum + s.durationMinutes, 0),
     currentStreak,
     longestStreak: maxStreak,
     heatmap: byDate,

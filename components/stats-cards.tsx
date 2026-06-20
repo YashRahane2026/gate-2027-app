@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, TrendingUp, Calendar, Flame, Trophy } from "lucide-react";
+import { Clock, TrendingUp, Calendar, Flame, Trophy, Award } from "lucide-react";
 import { formatMinutes } from "@/lib/utils";
 
 interface StatsCardsProps {
@@ -9,6 +9,7 @@ interface StatsCardsProps {
   monthMinutes: number;
   currentStreak: number;
   longestStreak: number;
+  totalMinutes: number;
 }
 
 interface StatCardProps {
@@ -42,9 +43,10 @@ export function StatsCards({
   monthMinutes,
   currentStreak,
   longestStreak,
+  totalMinutes,
 }: StatsCardsProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
       <StatCard
         icon={Clock}
         label="Today"
@@ -80,6 +82,13 @@ export function StatsCards({
         value={`${longestStreak}d`}
         color="bg-yellow-600/80"
         glow="bg-gradient-to-br from-yellow-600/5 to-transparent"
+      />
+      <StatCard
+        icon={Award}
+        label="Total Study"
+        value={formatMinutes(totalMinutes)}
+        color="bg-pink-600/80"
+        glow="bg-gradient-to-br from-pink-600/5 to-transparent"
       />
     </div>
   );

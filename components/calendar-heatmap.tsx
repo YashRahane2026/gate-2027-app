@@ -19,11 +19,11 @@ interface CalendarHeatmapProps {
 
 function getColor(minutes: number): string {
   const hours = minutes / 60;
-  if (hours >= 6) return "#14532d";
-  if (hours >= 5) return "#16a34a";
+  if (hours >= 6) return "#d1fae5";
+  if (hours >= 5) return "#86efac";
   if (hours >= 4) return "#22c55e";
-  if (hours >= 2) return "#86efac";
-  if (hours > 0) return "#d1fae5";
+  if (hours >= 2) return "#16a34a";
+  if (hours > 0) return "#14532d";
   return "transparent";
 }
 
@@ -83,7 +83,7 @@ export function CalendarHeatmap({ heatmap }: CalendarHeatmapProps) {
         {/* Legend */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>Less</span>
-          {["transparent", "#d1fae5", "#86efac", "#22c55e", "#16a34a", "#14532d"].map((c) => (
+          {["transparent", "#14532d", "#16a34a", "#22c55e", "#86efac", "#d1fae5"].map((c) => (
             <div
               key={c}
               className="w-3 h-3 rounded-sm border border-white/10"
