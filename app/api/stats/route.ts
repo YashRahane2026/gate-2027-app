@@ -30,12 +30,24 @@ export async function GET() {
   // Today stats
   const todayData = byDate[today] ?? { totalMinutes: 0, sessions: [] };
 
-  // This week (last 7 days)
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    return getISTDateString(d);
-  });
+  // This week (current calendar week: Monday to Sunday)
+  const now = new Date();
+  const istDate = new Date(now.getTime() + 330 * 60 * 1000); // 330 mins = IST offset
+  const istDay = istDate.getUTCDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+  const daysSinceMonday = istDay === 0 ? 6 : istDay - 1;
+  
+  const mondayDate = new Date(istDate.getTime());
+  mondayDate.setUTCDate(mondayDate.getUTCDate() - daysSinceMonday);
+
+  const weekDates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mondayDate.getTime());
+    d.setUTCDate(d.getUTCDate() + i);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    weekDates.push(`${yyyy}-${mm}-${dd}`);
+  }
   const weekMinutes = weekDates.reduce((sum, d) => sum + (byDate[d]?.totalMinutes ?? 0), 0);
 
   // This month
@@ -112,22 +124,27 @@ export async function GET() {
     minutes,
   }));
 
-  // Weekly bar chart (last 7 days)
-  const weeklyChart = weekDates.reverse().map((d) => ({
+  // Weekly bar chart (current calendar week: Monday to Sunday)
+  const weeklyChart = weekDates.map((d) => ({
     date: d,
     minutes: byDate[d]?.totalMinutes ?? 0,
-    label: new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "short" }),
+    label: new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
   }));
 
-  // Monthly line chart (last 30 days)
-  const monthlyChart = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    const dateStr = getISTDateString(d);
+  // Monthly line chart (current calendar month)
+  const year = istDate.getUTCFullYear();
+  const month = istDate.getUTCMonth(); // 0-indexed
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const monthlyChart = Array.from({ length: totalDaysInMonth }, (_, i) => {
+    const dayNum = i + 1;
+    const mm = String(month + 1).padStart(2, "0");
+    const dd = String(dayNum).padStart(2, "0");
+    const dateStr = `${year}-${mm}-${dd}`;
     return {
       date: dateStr,
       minutes: byDate[dateStr]?.totalMinutes ?? 0,
-      label: dateStr.slice(5), // "MM-DD"
+      label: `${mm}-${dd}`,
     };
   });
 
