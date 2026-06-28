@@ -253,14 +253,18 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTime
                 id="subject-select"
                 className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-violet-500 transition-all"
               >
-                <option value="">— Select subject —</option>
+                <option value="" className="bg-[#13131f] text-white">
+                  — Select subject —
+                </option>
                 {activeTodos.map((t) => (
-                  <option key={t.id} value={t.text}>
+                  <option key={t.id} value={t.text} className="bg-[#13131f] text-white">
                     {t.text}
                     {t.targetDetail ? ` (${t.targetDetail})` : ""}
                   </option>
                 ))}
-                <option value="__custom__">✏️ Enter custom subject</option>
+                <option value="__custom__" className="bg-[#13131f] text-white">
+                  ✏️ Enter custom subject
+                </option>
               </select>
             </div>
 
