@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { getPusherClient } from "@/lib/pusher";
 import { getInitials } from "@/lib/utils";
@@ -70,18 +70,7 @@ export function StudyGroupChat() {
   const [loading, setLoading] = useState(true);
   const [loadingDMs, setLoadingDMs] = useState(false);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const myUserId = session?.user?.id;
-
-  // Scroll to bottom helper
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [groupMessages, dmMessages, selectedUser, activeTab]);
 
   // Fetch Users & Group Messages
   useEffect(() => {
@@ -464,7 +453,6 @@ export function StudyGroupChat() {
               )
             )
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Input Bar / Form */}
