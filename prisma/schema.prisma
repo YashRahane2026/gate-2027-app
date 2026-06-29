@@ -24,6 +24,9 @@ model User {
   syllabusItems  SyllabusItem[]
   focusState     FocusTimerState?
   accounts       Account[]
+  chatMessages   ChatMessage[]
+  sentDMs        DirectMessage[] @relation("SentDMs")
+  receivedDMs    DirectMessage[] @relation("ReceivedDMs")
 }
 
 model Account {
@@ -102,4 +105,34 @@ model FocusTimerState {
   currentSubject String?
   updatedAt      DateTime  @updatedAt
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id             String    @id @default(cuid())
+  userId         String
+  text           String
+  attachmentUrl  String?
+  attachmentName String?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model DirectMessage {
+  id             String    @id @default(cuid())
+  senderId       String
+  receiverId     String
+  text           String
+  attachmentUrl  String?
+  attachmentName String?
+  createdAt      DateTime  @default(now())
+  sender         User      @relation("SentDMs", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver       User      @relation("ReceivedDMs", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([senderId, receiverId])
 }
