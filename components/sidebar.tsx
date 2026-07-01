@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Puzzle,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/use-ui-store";
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/stats", label: "Stats", icon: BarChart2 },
   { href: "/syllabus", label: "Syllabus", icon: BookOpen },
   { href: "/study-group", label: "Study Group", icon: Users },
+  { href: "/extension", label: "Extension", icon: Puzzle },
 ];
 
 export function Sidebar() {
