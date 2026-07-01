@@ -14,6 +14,11 @@ async function getLeaderboardData() {
       name: true,
       image: true,
       lastActive: true,
+      focusState: {
+        select: {
+          isRunning: true,
+        },
+      },
       sessions: {
         select: {
           date: true,
@@ -32,11 +37,15 @@ async function getLeaderboardData() {
       const totalMinutes = u.sessions
         .reduce((sum, s) => sum + s.durationMinutes, 0);
 
+      const isOnline =
+        (u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000) ||
+        (u.focusState?.isRunning === true);
+
       return {
         id: u.id,
         name: u.name,
         image: u.image,
-        lastActive: u.lastActive ? u.lastActive.toISOString() : undefined,
+        isOnline: !!isOnline,
         todayMinutes,
         totalMinutes,
       };

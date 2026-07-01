@@ -12,7 +12,7 @@ interface User {
   id: string;
   name: string;
   image: string | null;
-  lastActive?: string;
+  isOnline?: boolean;
 }
 
 interface Message {
@@ -392,40 +392,11 @@ export function StudyGroupChat() {
   return (
     <div className="bg-[#13131f] border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row h-[550px]">
       
-      {/* LEFT SIDEBAR - Channel & Direct Message list */}
+      {/* 1. LEFT SIDEBAR - Channel & Direct Message list */}
       <div className={cn(
-        "w-full md:w-64 border-r border-white/10 flex flex-col bg-[#0d0d15] transition-all flex-shrink-0",
+        "w-full md:w-48 border-r border-white/10 flex flex-col bg-[#0d0d15] transition-all flex-shrink-0",
         activeTab === "dm" && selectedUser ? "hidden md:flex" : "flex"
       )}>
-        
-        {/* Toggle Headings */}
-        <div className="flex border-b border-white/10">
-          <button
-            onClick={() => { setActiveTab("group"); setSelectedUser(null); }}
-            className={cn(
-              "flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-all",
-              activeTab === "group"
-                ? "border-violet-500 text-white bg-white/5"
-                : "border-transparent text-gray-400 hover:text-white"
-            )}
-          >
-            <Users className="w-3.5 h-3.5" />
-            Group Chat
-          </button>
-          <button
-            onClick={() => setActiveTab("dm")}
-            className={cn(
-              "flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-all",
-              activeTab === "dm"
-                ? "border-violet-500 text-white bg-white/5"
-                : "border-transparent text-gray-400 hover:text-white"
-            )}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            Direct Msg
-          </button>
-        </div>
-
         {/* Channels/Users List Container */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
           {activeTab === "group" ? (
@@ -453,20 +424,20 @@ export function StudyGroupChat() {
                 <div className="text-center py-8 text-[10px] text-gray-500">No other members registered yet.</div>
               ) : (
                 users.map((u) => {
-                  const isOnline = u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000;
+                  const isOnline = u.isOnline;
                   return (
                     <button
                       key={u.id}
                       onClick={() => setSelectedUser(u)}
                       className={cn(
-                        "w-full flex items-center gap-2.5 p-2 rounded-lg text-left border transition-all",
+                        "w-full flex items-center gap-2 p-2 rounded-lg text-left border transition-all",
                         selectedUser?.id === u.id
                           ? "border-violet-500/30 bg-violet-500/10 text-white"
                           : "border-transparent hover:bg-white/5 text-gray-300"
                       )}
                     >
                       <div className="relative flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
                           {getInitials(u.name)}
                         </div>
                         {isOnline && (
@@ -475,11 +446,11 @@ export function StudyGroupChat() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-xs truncate">{u.name}</p>
-                        <p className={cn("text-[10px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
+                        <p className={cn("text-[9px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
                           {isOnline ? "Online" : "Offline"}
                         </p>
                       </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-300 transition-colors" />
+                      <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors" />
                     </button>
                   );
                 })
@@ -489,7 +460,38 @@ export function StudyGroupChat() {
         </div>
       </div>
 
-      {/* RIGHT CHAT WINDOW */}
+      {/* 2. MIDDLE NARROW VERTICAL NAV */}
+      <div className={cn(
+        "w-full md:w-16 border-r border-white/10 flex md:flex-col bg-[#0b0b10] py-3 gap-2 flex-shrink-0 justify-around md:justify-start",
+        activeTab === "dm" && selectedUser ? "hidden md:flex" : "flex"
+      )}>
+        <button
+          onClick={() => { setActiveTab("group"); setSelectedUser(null); }}
+          className={cn(
+            "flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold gap-1 transition-all w-12 h-12 mx-auto",
+            activeTab === "group"
+              ? "bg-violet-600 text-white shadow-lg shadow-violet-500/10"
+              : "text-gray-400 hover:text-white hover:bg-white/5"
+          )}
+        >
+          <Users className="w-4 h-4" />
+          Group
+        </button>
+        <button
+          onClick={() => setActiveTab("dm")}
+          className={cn(
+            "flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold gap-1 transition-all w-12 h-12 mx-auto",
+            activeTab === "dm"
+              ? "bg-violet-600 text-white shadow-lg shadow-violet-500/10"
+              : "text-gray-400 hover:text-white hover:bg-white/5"
+          )}
+        >
+          <MessageSquare className="w-4 h-4" />
+          DM
+        </button>
+      </div>
+
+      {/* 3. RIGHT CHAT WINDOW */}
       <div className={cn(
         "flex-1 flex flex-col bg-[#111119] relative h-full min-w-0",
         activeTab === "dm" && !selectedUser ? "hidden md:flex" : "flex"
@@ -509,21 +511,17 @@ export function StudyGroupChat() {
             <div>
               <h3 className="font-semibold text-white text-xs truncate flex items-center gap-2 font-sans">
                 {selectedUser ? `💬 Private: ${selectedUser.name}` : "📢 Global Study Group Chat"}
-                {selectedUser && (() => {
-                  const isOnline = selectedUser.lastActive && (Date.now() - new Date(selectedUser.lastActive).getTime()) < 3 * 60 * 1000;
-                  return isOnline && (
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                  );
-                })()}
+                {selectedUser && selectedUser.isOnline && (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                )}
               </h3>
               <p className="text-[10px] text-gray-500 font-sans">
-                {selectedUser ? (() => {
-                  const isOnline = selectedUser.lastActive && (Date.now() - new Date(selectedUser.lastActive).getTime()) < 3 * 60 * 1000;
-                  return isOnline ? "Online" : "Offline";
-                })() : "Shared study resources & chat"}
+                {selectedUser 
+                  ? (selectedUser.isOnline ? "Online" : "Offline") 
+                  : "Shared study resources & chat"}
               </p>
             </div>
           </div>

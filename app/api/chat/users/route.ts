@@ -17,14 +17,32 @@ export async function GET() {
         id: true,
         name: true,
         image: true,
-        lastActive: true
+        lastActive: true,
+        focusState: {
+          select: {
+            isRunning: true
+          }
+        }
       },
       orderBy: {
         name: "asc"
       }
     });
 
-    return NextResponse.json({ users });
+    const mappedUsers = users.map((u) => {
+      const isOnline = 
+        (u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000) ||
+        (u.focusState?.isRunning === true);
+
+      return {
+        id: u.id,
+        name: u.name,
+        image: u.image,
+        isOnline: !!isOnline
+      };
+    });
+
+    return NextResponse.json({ users: mappedUsers });
   } catch (error) {
     console.error("Failed to fetch chat users:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

@@ -12,7 +12,7 @@ interface LeaderboardEntry {
   image: string | null;
   todayMinutes: number;
   rank: number;
-  lastActive?: string;
+  isOnline?: boolean;
   totalMinutes?: number;
 }
 
@@ -74,7 +74,7 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
         const isMe = entry.id === session?.user?.id;
         const hours = Math.floor(entry.todayMinutes / 60);
         const mins = entry.todayMinutes % 60;
-        const isOnline = entry.lastActive && (Date.now() - new Date(entry.lastActive).getTime()) < 3 * 60 * 1000;
+        const isOnline = entry.isOnline;
 
         return (
           <div
