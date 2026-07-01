@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, BookOpen, Loader2 } from "lucide-react";
+import { Eye, EyeOff, BookOpen, Loader2, X } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,18 +14,27 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Google simulated login states
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState("");
+  const [googlePassword, setGooglePassword] = useState("");
+  const [googleError, setGoogleError] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+
     try {
       const result = await signIn("credentials", {
+        redirect: false,
         email,
         password,
-        redirect: false,
       });
+
       if (result?.error) {
-        setError("Invalid email or password. Please try again.");
+        setError("Invalid email or password");
       } else {
         router.push("/dashboard");
         router.refresh();
@@ -37,7 +46,50 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogle = () => signIn("google", { callbackUrl: "/dashboard" });
+  const handleGoogleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGoogleLoading(true);
+    setGoogleError("");
+
+    try {
+      // Call simulated Google endpoint to ensure user exists
+      const res = await fetch("/api/auth/google-simulated", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: googleEmail, password: googlePassword }),
+      });
+
+      if (res.ok) {
+        // Authenticate standard Credentials session
+        const result = await signIn("credentials", {
+          redirect: false,
+          email: googleEmail,
+          password: googlePassword,
+        });
+
+        if (result?.error) {
+          setGoogleError("Invalid password for this Google account.");
+        } else {
+          router.push("/dashboard");
+          router.refresh();
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setGoogleError(data.error || "Failed to authenticate Google account.");
+      }
+    } catch {
+      setGoogleError("Connection error. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogle = () => {
+    setGoogleEmail("");
+    setGooglePassword("");
+    setGoogleError("");
+    setShowGoogleModal(true);
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
@@ -141,6 +193,76 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {/* Simulated Google Login Modal */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#13131f] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200">
+            
+            <button 
+              type="button"
+              onClick={() => setShowGoogleModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mb-2">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.16-5.137 4.16-3.47 0-6.29-2.82-6.29-6.29s2.82-6.29 6.29-6.29c1.55 0 2.97.56 4.07 1.48l3.15-3.15C19.1 1.9 15.82 1 12.24 1 6.03 1 1 6.03 1 12.24s5.03 11.24 11.24 11.24c6.23 0 11.24-5.03 11.24-11.24 0-.82-.08-1.6-.22-2.35l-9.9-.015z"/>
+                </svg>
+              </div>
+              <h2 className="text-md font-bold text-white font-sans">Google Sign-in</h2>
+              <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Enter Google account details to proceed</p>
+            </div>
+
+            {googleError && (
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl p-3 mb-4 text-center font-sans">
+                {googleError}
+              </div>
+            )}
+
+            <form onSubmit={handleGoogleSubmit} className="space-y-4">
+              <div>
+                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1 font-sans">Google Email</label>
+                <input
+                  type="email"
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  placeholder="name@gmail.com"
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1 font-sans">Password</label>
+                <input
+                  type="password"
+                  value={googlePassword}
+                  onChange={(e) => setGooglePassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all font-sans"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={googleLoading}
+                className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-lg shadow-violet-500/20 transition-all flex items-center justify-center gap-2 font-sans"
+              >
+                {googleLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  "Sign in & Enter"
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
