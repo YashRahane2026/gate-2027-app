@@ -13,20 +13,34 @@ async function getLeaderboardData() {
       id: true,
       name: true,
       image: true,
+      lastActive: true,
       sessions: {
-        where: { date: today },
-        select: { durationMinutes: true },
+        select: {
+          date: true,
+          durationMinutes: true,
+        },
       },
     },
   });
 
   return users
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      image: u.image,
-      todayMinutes: u.sessions.reduce((s, x) => s + x.durationMinutes, 0),
-    }))
+    .map((u) => {
+      const todayMinutes = u.sessions
+        .filter((s) => s.date === today)
+        .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+      const totalMinutes = u.sessions
+        .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+      return {
+        id: u.id,
+        name: u.name,
+        image: u.image,
+        lastActive: u.lastActive ? u.lastActive.toISOString() : undefined,
+        todayMinutes,
+        totalMinutes,
+      };
+    })
     .sort((a, b) => b.todayMinutes - a.todayMinutes)
     .map((u, i) => ({ ...u, rank: i + 1 }));
 }
@@ -43,10 +57,10 @@ export default async function StudyGroupPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Side: Leaderboard Rankings */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 lg:col-span-1 h-fit">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 lg:col-span-5 h-fit">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-white font-sans">Leaderboard</h2>
             <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -58,7 +72,7 @@ export default async function StudyGroupPage() {
         </div>
 
         {/* Right Side: Group Chat & DM Portal */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-7">
           <StudyGroupChat />
         </div>
 

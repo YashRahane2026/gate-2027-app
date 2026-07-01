@@ -13,6 +13,7 @@ interface LeaderboardEntry {
   todayMinutes: number;
   rank: number;
   lastActive?: string;
+  totalMinutes?: number;
 }
 
 interface LeaderboardProps {
@@ -124,6 +125,9 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
               </p>
               <p className="text-xs text-gray-400">
                 {entry.todayMinutes > 0 ? `${hours}h ${mins}m today` : "No sessions yet"}
+                <span className="text-[10px] text-violet-400/70 block sm:inline sm:ml-2">
+                  • Total: {entry.totalMinutes ? (entry.totalMinutes / 60).toFixed(1) : "0.0"} hrs
+                </span>
               </p>
             </div>
 

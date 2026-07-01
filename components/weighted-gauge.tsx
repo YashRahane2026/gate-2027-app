@@ -2,25 +2,34 @@
 
 import { useMemo } from "react";
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts";
-import { ALL_SUBJECTS, TOTAL_WEIGHTAGE } from "@/lib/syllabus-config";
+import { SYLLABUS_SECTIONS } from "@/lib/syllabus-config";
 import { SyllabusItemData, getSyllabusStats } from "@/types/syllabus";
 
 interface WeightedGaugeProps {
   items: SyllabusItemData[];
+  stream: "CSE" | "DA";
 }
 
-export function WeightedGauge({ items }: WeightedGaugeProps) {
+export function WeightedGauge({ items, stream }: WeightedGaugeProps) {
   const weightedCompletion = useMemo(() => {
+    const allowedSections = SYLLABUS_SECTIONS.filter((s) => {
+      if (s.name === "Core CS") return stream === "CSE";
+      if (s.name === "Core DA") return stream === "DA";
+      return true;
+    });
+    const allowedSubjects = allowedSections.flatMap((s) => s.subjects);
+    const totalWeight = allowedSubjects.reduce((sum, s) => sum + s.weightage, 0);
+
     let total = 0;
-    for (const subject of ALL_SUBJECTS) {
+    for (const subject of allowedSubjects) {
       const subjectItems = items.filter((i) => i.subject === subject.name);
       if (subjectItems.length === 0) continue;
       
       const stats = getSyllabusStats(subjectItems);
       total += subject.weightage * stats.pct;
     }
-    return Math.round((total / TOTAL_WEIGHTAGE) * 100);
-  }, [items]);
+    return totalWeight > 0 ? Math.round((total / totalWeight) * 100) : 0;
+  }, [items, stream]);
 
   const data = [{ value: weightedCompletion, fill: "#8b5cf6" }];
 

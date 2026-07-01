@@ -19,20 +19,32 @@ export async function GET() {
       image: true,
       lastActive: true,
       sessions: {
-        where: { date: today },
-        select: { durationMinutes: true },
+        select: {
+          date: true,
+          durationMinutes: true,
+        },
       },
     },
   });
 
   const leaderboard = users
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      image: u.image,
-      lastActive: u.lastActive,
-      todayMinutes: u.sessions.reduce((sum, s) => sum + s.durationMinutes, 0),
-    }))
+    .map((u) => {
+      const todayMinutes = u.sessions
+        .filter((s) => s.date === today)
+        .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+      const totalMinutes = u.sessions
+        .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+      return {
+        id: u.id,
+        name: u.name,
+        image: u.image,
+        lastActive: u.lastActive,
+        todayMinutes,
+        totalMinutes,
+      };
+    })
     .filter((u) => u.todayMinutes > 0 || u.id === session.user.id)
     .sort((a, b) => b.todayMinutes - a.todayMinutes)
     .map((u, idx) => ({ ...u, rank: idx + 1 }));
