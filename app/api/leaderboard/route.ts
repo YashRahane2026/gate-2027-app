@@ -54,8 +54,12 @@ export async function GET() {
         totalMinutes,
       };
     })
-    .filter((u) => u.todayMinutes > 0 || u.id === session.user.id)
-    .sort((a, b) => b.todayMinutes - a.todayMinutes)
+    .sort((a, b) => {
+      if (b.todayMinutes !== a.todayMinutes) {
+        return b.todayMinutes - a.todayMinutes;
+      }
+      return b.totalMinutes - a.totalMinutes;
+    })
     .map((u, idx) => ({ ...u, rank: idx + 1 }));
 
   return NextResponse.json({ leaderboard, date: today });

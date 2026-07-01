@@ -56,6 +56,7 @@ export async function GET() {
         id: true,
         name: true,
         image: true,
+        email: true,
         lastActive: true,
         focusState: {
           select: {
@@ -80,6 +81,7 @@ export async function GET() {
         name: isMe ? `${u.name} (You)` : u.name,
         image: u.image,
         isOnline: !!isOnline,
+        email: u.email,
         lastMessageAt: lastMessageMap[u.id] ? lastMessageMap[u.id].toISOString() : null,
         unreadCount: unreadCountMap[u.id] || 0
       };

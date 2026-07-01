@@ -12,6 +12,7 @@ interface User {
   id: string;
   name: string;
   image: string | null;
+  email?: string | null;
   isOnline?: boolean;
   lastMessageAt?: string | null;
   unreadCount?: number;
@@ -136,6 +137,7 @@ export function StudyGroupChat() {
   
   // Inputs & Uploads
   const [inputText, setInputText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showShareForm, setShowShareForm] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareName, setShareName] = useState("");
@@ -674,13 +676,32 @@ export function StudyGroupChat() {
         )}>
           {/* Users List Container */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <div className="px-1.5 mb-2.5">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="🔍 Search members..."
+                className="w-full px-2.5 py-1.5 text-[11px] rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all font-sans"
+              />
+            </div>
             <div className="space-y-1">
               <p className="text-[10px] font-bold text-gray-500 uppercase px-2 mb-1">Members</p>
               {users.length === 0 ? (
                 <div className="text-center py-8 text-[10px] text-gray-500">No other members registered yet.</div>
               ) : (
                 [...users]
+                  .filter((u) => {
+                    if (!searchQuery) return true;
+                    return u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
+                  })
                   .sort((a, b) => {
+                    const aIsAdmin = a.email && ADMIN_EMAILS.includes(a.email.toLowerCase());
+                    const bIsAdmin = b.email && ADMIN_EMAILS.includes(b.email.toLowerCase());
+                    if (aIsAdmin && !bIsAdmin) return -1;
+                    if (!aIsAdmin && bIsAdmin) return 1;
+
                     const aUnread = (unreadCounts[a.id] || 0) > 0;
                     const bUnread = (unreadCounts[b.id] || 0) > 0;
                     // Pinned unread chats on top

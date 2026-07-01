@@ -50,7 +50,12 @@ async function getLeaderboardData() {
         totalMinutes,
       };
     })
-    .sort((a, b) => b.todayMinutes - a.todayMinutes)
+    .sort((a, b) => {
+      if (b.todayMinutes !== a.todayMinutes) {
+        return b.todayMinutes - a.todayMinutes;
+      }
+      return b.totalMinutes - a.totalMinutes;
+    })
     .map((u, i) => ({ ...u, rank: i + 1 }));
 }
 
