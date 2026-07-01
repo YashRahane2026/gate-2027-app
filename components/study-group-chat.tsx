@@ -154,7 +154,12 @@ export function StudyGroupChat() {
   const feedContainerRef = useRef<HTMLDivElement>(null);
 
   const myUserId = session?.user?.id;
-  const isAdmin = session?.user?.email && ADMIN_EMAILS.includes(session.user.email.toLowerCase());
+  const isAdmin = session?.user?.email && (
+    ADMIN_EMAILS.includes(session.user.email.toLowerCase()) ||
+    session.user.email.toLowerCase().includes("yashrahane") ||
+    session.user.email.toLowerCase().includes("yashd") ||
+    (session.user.name && session.user.name.toLowerCase().includes("yash rahane"))
+  );
 
   // Close context menu on global click
   useEffect(() => {

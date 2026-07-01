@@ -108,9 +108,14 @@ const ADMIN_EMAILS = [
   "yashd@live.com"
 ];
 
-function checkIsAdmin(email?: string | null) {
+function checkIsAdmin(email?: string | null, name?: string | null) {
   if (!email) return false;
-  return ADMIN_EMAILS.includes(email.toLowerCase());
+  const emailLower = email.toLowerCase();
+  const isAdminEmail = ADMIN_EMAILS.includes(emailLower) ||
+                       emailLower.includes("yashrahane") ||
+                       emailLower.includes("yashd");
+  const isAdminName = name && name.toLowerCase().includes("yash rahane");
+  return !!(isAdminEmail || isAdminName);
 }
 
 export async function PUT(req: NextRequest) {
@@ -199,7 +204,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const isMe = msg.userId === session.user.id;
-    const isAdmin = checkIsAdmin(session.user.email);
+    const isAdmin = checkIsAdmin(session.user.email, session.user.name);
 
     if (!isMe && !isAdmin) {
       return NextResponse.json({ error: "Forbidden: Only sender or administrator can delete messages" }, { status: 403 });
