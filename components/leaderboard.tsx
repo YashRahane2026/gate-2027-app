@@ -12,6 +12,7 @@ interface LeaderboardEntry {
   image: string | null;
   todayMinutes: number;
   rank: number;
+  lastActive?: string;
 }
 
 interface LeaderboardProps {
@@ -72,6 +73,7 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
         const isMe = entry.id === session?.user?.id;
         const hours = Math.floor(entry.todayMinutes / 60);
         const mins = entry.todayMinutes % 60;
+        const isOnline = entry.lastActive && (Date.now() - new Date(entry.lastActive).getTime()) < 3 * 60 * 1000;
 
         return (
           <div
@@ -105,7 +107,9 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
                 {getInitials(entry.name)}
               </div>
               {/* Online indicator */}
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0a0a0f]" />
+              {isOnline && (
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0a0a0f]" />
+              )}
             </div>
 
             {/* Name */}

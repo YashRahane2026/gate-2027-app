@@ -12,6 +12,7 @@ interface User {
   id: string;
   name: string;
   image: string | null;
+  lastActive?: string;
 }
 
 interface Message {
@@ -361,27 +362,37 @@ export function StudyGroupChat() {
               {users.length === 0 ? (
                 <div className="text-center py-8 text-xs text-gray-500">No other members registered yet.</div>
               ) : (
-                users.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => setSelectedUser(u)}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-2.5 rounded-xl text-left border transition-all",
-                      selectedUser?.id === u.id
-                        ? "border-violet-500/30 bg-violet-500/10 text-white"
-                        : "border-transparent hover:bg-white/5 text-gray-300"
-                    )}
-                  >
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-xs">
-                      {getInitials(u.name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{u.name}</p>
-                      <p className="text-xs text-emerald-400">Online</p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-gray-300 transition-colors" />
-                  </button>
-                ))
+                users.map((u) => {
+                  const isOnline = u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000;
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() => setSelectedUser(u)}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-2.5 rounded-xl text-left border transition-all",
+                        selectedUser?.id === u.id
+                          ? "border-violet-500/30 bg-violet-500/10 text-white"
+                          : "border-transparent hover:bg-white/5 text-gray-300"
+                      )}
+                    >
+                      <div className="relative">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-xs">
+                          {getInitials(u.name)}
+                        </div>
+                        {isOnline && (
+                          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0d0d15]" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{u.name}</p>
+                        <p className={cn("text-xs font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
+                          {isOnline ? "Online" : "Offline"}
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-gray-300 transition-colors" />
+                    </button>
+                  );
+                })
               )}
             </div>
           )}
@@ -406,11 +417,23 @@ export function StudyGroupChat() {
               </button>
             )}
             <div>
-              <h3 className="font-semibold text-white text-sm truncate">
+              <h3 className="font-semibold text-white text-sm truncate flex items-center gap-2">
                 {selectedUser ? `💬 Private: ${selectedUser.name}` : "📢 Global Study Group Chat"}
+                {selectedUser && (() => {
+                  const isOnline = selectedUser.lastActive && (Date.now() - new Date(selectedUser.lastActive).getTime()) < 3 * 60 * 1000;
+                  return isOnline && (
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  );
+                })()}
               </h3>
               <p className="text-xs text-gray-500">
-                {selectedUser ? "Direct messages are private" : "Shared study resources & chat"}
+                {selectedUser ? (() => {
+                  const isOnline = selectedUser.lastActive && (Date.now() - new Date(selectedUser.lastActive).getTime()) < 3 * 60 * 1000;
+                  return isOnline ? "Online" : "Offline";
+                })() : "Shared study resources & chat"}
               </p>
             </div>
           </div>
@@ -444,64 +467,77 @@ export function StudyGroupChat() {
                       <div className="space-y-1">
                         {!isMe && <p className="text-[10px] text-gray-500">{msg.user?.name}</p>}
                         
-                        <div className={cn(
-                          "p-3 rounded-2xl text-sm border relative",
-                          isMe
-                            ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
-                            : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"
-                        )}>
-                          
-                          {/* Replied-To Message Header Quote Box */}
-                          {msg.replyTo && (
+                        {(() => {
+                          const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
+                          return (
                             <div className={cn(
-                              "mb-2 p-2 rounded-lg text-xs border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
-                              isMe ? "border-violet-300" : "border-violet-500"
+                              "rounded-2xl text-sm border relative overflow-hidden",
+                              hasOnlyImage 
+                                ? "p-1 bg-black/20 border-white/10 max-w-[260px]" 
+                                : "p-3",
+                              !hasOnlyImage && (isMe
+                                ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
+                                : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
+                              hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
                             )}>
-                              <p className="font-semibold text-[10px] text-violet-300">
-                                {msg.replyTo.user?.id === myUserId ? "You" : msg.replyTo.user?.name}
-                              </p>
-                              <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
-                            </div>
-                          )}
-
-                          <p className="break-words whitespace-pre-wrap">{msg.text}</p>
-                          
-                          {/* Photo / Material attachment */}
-                          {msg.attachmentUrl && (
-                            isImageUrl(msg.attachmentUrl) ? (
-                              <div className="mt-2 rounded-xl overflow-hidden border border-white/10 max-w-full bg-black/25">
-                                <img
-                                  src={msg.attachmentUrl}
-                                  alt={msg.attachmentName || "Attached image"}
-                                  className="w-full h-auto max-h-60 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
-                                  onClick={() => window.open(msg.attachmentUrl!, "_blank")}
-                                />
-                                {msg.attachmentName && (
-                                  <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
-                                    📸 {msg.attachmentName}
+                              
+                              {/* Replied-To Message Header Quote Box */}
+                              {msg.replyTo && (
+                                <div className={cn(
+                                  "mb-2 p-2 rounded-lg text-xs border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
+                                  isMe ? "border-violet-300" : "border-violet-500"
+                                )}>
+                                  <p className="font-semibold text-[10px] text-violet-300">
+                                    {msg.replyTo.user?.id === myUserId ? "You" : msg.replyTo.user?.name}
                                   </p>
-                                )}
-                              </div>
-                            ) : (
-                              <a
-                                href={msg.attachmentUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={cn(
-                                  "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
-                                  isMe
-                                    ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
-                                    : "bg-[#13131f] border-white/10 text-violet-300 hover:text-violet-200"
-                                )}
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                <span className="truncate flex-1">
-                                  {msg.attachmentName || "Download shared file"}
-                                </span>
-                              </a>
-                            )
-                          )}
-                        </div>
+                                  <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
+                                </div>
+                              )}
+
+                              {!hasOnlyImage && msg.text && <p className="break-words whitespace-pre-wrap">{msg.text}</p>}
+                              
+                              {/* Photo / Material attachment */}
+                              {msg.attachmentUrl && (
+                                isImageUrl(msg.attachmentUrl) ? (
+                                  <div className={cn(
+                                    "overflow-hidden border border-white/10 bg-black/25",
+                                    hasOnlyImage ? "rounded-xl" : "mt-2 rounded-xl"
+                                  )}>
+                                    <img
+                                      src={msg.attachmentUrl}
+                                      alt={msg.attachmentName || "Attached image"}
+                                      className="w-full h-auto max-h-60 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                      onClick={() => window.open(msg.attachmentUrl!, "_blank")}
+                                    />
+                                    {!hasOnlyImage && msg.attachmentName && (
+                                      <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
+                                        📸 {msg.attachmentName}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <a
+                                    href={msg.attachmentUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={cn(
+                                      "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
+                                      isMe
+                                        ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
+                                        : "bg-[#13131f] border-white/10 text-violet-300 hover:text-violet-200"
+                                    )}
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span className="truncate flex-1">
+                                      {msg.attachmentName || "Download shared file"}
+                                    </span>
+                                  </a>
+                                )
+                              )}
+                            </div>
+                          );
+                        })()}
+                        
                         <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
@@ -538,64 +574,78 @@ export function StudyGroupChat() {
                     <div key={msg.id} className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
                       <div className={cn("flex gap-2 max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row")}>
                         <div className="space-y-1">
-                          <div className={cn(
-                            "p-3 rounded-2xl text-sm border relative",
-                            isMe
-                              ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
-                              : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"
-                          )}>
-                            
-                            {/* DM Replied-To Message Header Quote Box */}
-                            {msg.replyTo && (
+                          
+                          {(() => {
+                            const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
+                            return (
                               <div className={cn(
-                                "mb-2 p-2 rounded-lg text-xs border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
-                                isMe ? "border-blue-300" : "border-blue-500"
+                                "rounded-2xl text-sm border relative overflow-hidden",
+                                hasOnlyImage 
+                                  ? "p-1 bg-black/20 border-white/10 max-w-[260px]" 
+                                  : "p-3",
+                                !hasOnlyImage && (isMe
+                                  ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
+                                  : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
+                                hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
                               )}>
-                                <p className="font-semibold text-[10px] text-blue-300">
-                                  {msg.replyTo.sender?.id === myUserId ? "You" : msg.replyTo.sender?.name}
-                                </p>
-                                <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
-                              </div>
-                            )}
-
-                            <p className="break-words whitespace-pre-wrap">{msg.text}</p>
-                            
-                            {/* DM Photo / Material attachment */}
-                            {msg.attachmentUrl && (
-                              isImageUrl(msg.attachmentUrl) ? (
-                                <div className="mt-2 rounded-xl overflow-hidden border border-white/10 max-w-full bg-black/25">
-                                  <img
-                                    src={msg.attachmentUrl}
-                                    alt={msg.attachmentName || "Attached image"}
-                                    className="w-full h-auto max-h-60 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
-                                    onClick={() => window.open(msg.attachmentUrl!, "_blank")}
-                                  />
-                                  {msg.attachmentName && (
-                                    <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
-                                      📸 {msg.attachmentName}
+                                
+                                {/* DM Replied-To Message Header Quote Box */}
+                                {msg.replyTo && (
+                                  <div className={cn(
+                                    "mb-2 p-2 rounded-lg text-xs border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
+                                    isMe ? "border-blue-300" : "border-blue-500"
+                                  )}>
+                                    <p className="font-semibold text-[10px] text-blue-300">
+                                      {msg.replyTo.sender?.id === myUserId ? "You" : msg.replyTo.sender?.name}
                                     </p>
-                                  )}
-                                </div>
-                              ) : (
-                                <a
-                                  href={msg.attachmentUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={cn(
-                                    "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
-                                    isMe
-                                      ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
-                                      : "bg-[#13131f] border-white/10 text-blue-300 hover:text-blue-200"
-                                  )}
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  <span className="truncate flex-1">
-                                    {msg.attachmentName || "Download shared file"}
-                                  </span>
-                                </a>
-                              )
-                            )}
-                          </div>
+                                    <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
+                                  </div>
+                                )}
+
+                                {!hasOnlyImage && msg.text && <p className="break-words whitespace-pre-wrap">{msg.text}</p>}
+                                
+                                {/* DM Photo / Material attachment */}
+                                {msg.attachmentUrl && (
+                                  isImageUrl(msg.attachmentUrl) ? (
+                                    <div className={cn(
+                                      "overflow-hidden border border-white/10 bg-black/25",
+                                      hasOnlyImage ? "rounded-xl" : "mt-2 rounded-xl"
+                                    )}>
+                                      <img
+                                        src={msg.attachmentUrl}
+                                        alt={msg.attachmentName || "Attached image"}
+                                        className="w-full h-auto max-h-60 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                        onClick={() => window.open(msg.attachmentUrl!, "_blank")}
+                                      />
+                                      {!hasOnlyImage && msg.attachmentName && (
+                                        <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
+                                          📸 {msg.attachmentName}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <a
+                                      href={msg.attachmentUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={cn(
+                                        "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
+                                        isMe
+                                          ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
+                                          : "bg-[#13131f] border-white/10 text-blue-300 hover:text-blue-200"
+                                      )}
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                      <span className="truncate flex-1">
+                                        {msg.attachmentName || "Download shared file"}
+                                      </span>
+                                    </a>
+                                  )
+                                )}
+                              </div>
+                            );
+                          })()}
+
                           <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>

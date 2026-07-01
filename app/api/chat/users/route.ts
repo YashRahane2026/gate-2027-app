@@ -16,7 +16,8 @@ export async function GET() {
       select: {
         id: true,
         name: true,
-        image: true
+        image: true,
+        lastActive: true
       },
       orderBy: {
         name: "asc"

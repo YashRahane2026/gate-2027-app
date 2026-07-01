@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { PingProvider } from "@/components/ping-provider";
 
 export const metadata: Metadata = {
   title: "GATE 2027 Prep — Study Tracker",
@@ -17,7 +18,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-[#0a0a0f] text-gray-100 antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <PingProvider />
+          {children}
+        </Providers>
       </body>
     </html>
   );

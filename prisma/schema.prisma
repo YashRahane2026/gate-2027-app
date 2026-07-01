@@ -19,6 +19,7 @@ model User {
   emailVerified  DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  lastActive     DateTime        @default(now())
   sessions       StudySession[]
   todos          TodoItem[]
   syllabusItems  SyllabusItem[]

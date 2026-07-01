@@ -17,6 +17,7 @@ export async function GET() {
       id: true,
       name: true,
       image: true,
+      lastActive: true,
       sessions: {
         where: { date: today },
         select: { durationMinutes: true },
@@ -29,6 +30,7 @@ export async function GET() {
       id: u.id,
       name: u.name,
       image: u.image,
+      lastActive: u.lastActive,
       todayMinutes: u.sessions.reduce((sum, s) => sum + s.durationMinutes, 0),
     }))
     .filter((u) => u.todayMinutes > 0 || u.id === session.user.id)
