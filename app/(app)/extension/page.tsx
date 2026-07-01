@@ -3,9 +3,6 @@
 import { useState } from "react";
 import { Puzzle, Download, ArrowRight, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 
-// Easily replaceable Google Drive folder link
-const EXTENSION_DRIVE_LINK = "https://drive.google.com/drive/folders/your-extension-folder-link";
-
 export default function ExtensionPage() {
   const [copied, setCopied] = useState(false);
 
@@ -19,7 +16,7 @@ export default function ExtensionPage() {
     {
       num: "01",
       title: "Download Zip File",
-      desc: "Click the download button above to access the Chrome extension zip folder on Google Drive, then download and unzip/extract it onto your computer."
+      desc: "Click the download button above to grab the extension zip archive directly from the web app, and extract it on your computer."
     },
     {
       num: "02",
@@ -67,15 +64,14 @@ export default function ExtensionPage() {
           </p>
         </div>
         
-        {/* Drive Download Button */}
+        {/* Direct Download Button */}
         <a
-          href={EXTENSION_DRIVE_LINK}
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/extension.zip"
+          download="gate-2027-tracker.zip"
           className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-lg shadow-violet-500/25 transition-all hover:scale-[1.02] flex items-center gap-2 group flex-shrink-0"
         >
           <Download className="w-4 h-4" />
-          Download from Drive
+          Download Extension
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </a>
       </div>
