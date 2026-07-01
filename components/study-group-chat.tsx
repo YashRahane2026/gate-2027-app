@@ -269,7 +269,12 @@ export function StudyGroupChat() {
         setShareName(data.name);
         toast({ title: "File uploaded successfully!" });
       } else {
-        toast({ title: "Upload failed", variant: "destructive" });
+        const errData = await res.json().catch(() => ({}));
+        toast({
+          title: "Upload failed",
+          description: errData.error || "Something went wrong during file processing.",
+          variant: "destructive"
+        });
       }
     } catch {
       toast({ title: "Upload failed due to connection error", variant: "destructive" });
