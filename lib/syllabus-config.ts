@@ -41,6 +41,16 @@ export const SYLLABUS_SECTIONS: SectionConfig[] = [
       { name: "Spatial Aptitude", weightage: 2 },
     ],
   },
+  {
+    name: "Core DA",
+    subjects: [
+      { name: "Programming", weightage: 6 },
+      { name: "Data Structures & Algorithms", weightage: 9 },
+      { name: "Database Management & Warehousing", weightage: 8 },
+      { name: "Machine Learning", weightage: 10 },
+      { name: "Artificial Intelligence", weightage: 8 },
+    ],
+  },
 ];
 
 // Flat list of all subjects
