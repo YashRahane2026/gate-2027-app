@@ -152,3 +152,133 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+const ADMIN_EMAILS = [
+  "abc@gmail.com",
+  "yashd@google.com",
+  "yashrahane2026@gmail.com",
+  "yashd@live.com"
+];
+
+function checkIsAdmin(email?: string | null) {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const { messageId, text } = body;
+
+    if (!messageId) {
+      return NextResponse.json({ error: "Message ID is required" }, { status: 400 });
+    }
+
+    const msg = await prisma.directMessage.findUnique({
+      where: { id: messageId }
+    });
+
+    if (!msg) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    if (msg.senderId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden: You can only edit your own messages" }, { status: 403 });
+    }
+
+    const updatedMessage = await prisma.directMessage.update({
+      where: { id: messageId },
+      data: { text },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+        replyTo: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    try {
+      await pusherServer.trigger(`user-${msg.receiverId}`, "dm-edit", updatedMessage);
+      await pusherServer.trigger(`user-${msg.senderId}`, "dm-edit", updatedMessage);
+    } catch (err) {
+      console.error(err);
+    }
+
+    return NextResponse.json({ message: updatedMessage });
+  } catch (error) {
+    console.error("Edit DM error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const messageId = searchParams.get("messageId");
+
+    if (!messageId) {
+      return NextResponse.json({ error: "Message ID is required" }, { status: 400 });
+    }
+
+    const msg = await prisma.directMessage.findUnique({
+      where: { id: messageId }
+    });
+
+    if (!msg) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    const isMe = msg.senderId === session.user.id;
+    const isAdmin = checkIsAdmin(session.user.email);
+
+    if (!isMe && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden: Only sender or administrator can delete messages" }, { status: 403 });
+    }
+
+    await prisma.directMessage.delete({
+      where: { id: messageId }
+    });
+
+    try {
+      await pusherServer.trigger(`user-${msg.receiverId}`, "dm-delete", { messageId });
+      await pusherServer.trigger(`user-${msg.senderId}`, "dm-delete", { messageId });
+    } catch (err) {
+      console.error(err);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete DM error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

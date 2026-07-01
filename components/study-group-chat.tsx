@@ -69,6 +69,13 @@ interface DMMessage {
   } | null;
 }
 
+const ADMIN_EMAILS = [
+  "abc@gmail.com",
+  "yashd@google.com",
+  "yashrahane2026@gmail.com",
+  "yashd@live.com"
+];
+
 const isImageUrl = (url: string | null) => {
   if (!url) return false;
   if (url.startsWith("data:image/")) return true;
@@ -114,6 +121,17 @@ export function StudyGroupChat() {
   const [dmMessages, setDmMessages] = useState<DMMessage[]>([]);
   const [unreadSenders, setUnreadSenders] = useState<string[]>([]);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
+
+  // Message Editing & Context Menu State
+  const [editingMessage, setEditingMessage] = useState<{ id: string; text: string; isDM: boolean } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    messageId: string;
+    text: string;
+    userId: string;
+    isDM: boolean;
+  } | null>(null);
   
   // Inputs & Uploads
   const [inputText, setInputText] = useState("");
@@ -136,6 +154,14 @@ export function StudyGroupChat() {
   const feedContainerRef = useRef<HTMLDivElement>(null);
 
   const myUserId = session?.user?.id;
+  const isAdmin = session?.user?.email && ADMIN_EMAILS.includes(session.user.email.toLowerCase());
+
+  // Close context menu on global click
+  useEffect(() => {
+    const handleGlobalClick = () => setContextMenu(null);
+    window.addEventListener("click", handleGlobalClick);
+    return () => window.removeEventListener("click", handleGlobalClick);
+  }, []);
 
   // Scroll to bottom helper (internally scrolls the chat feed only, preventing parent window jumping)
   const scrollToBottom = () => {
@@ -237,6 +263,17 @@ export function StudyGroupChat() {
         });
       });
 
+      // Group chat edit & delete bindings
+      groupChannel.bind("message-edit", (updatedMessage: Message) => {
+        setGroupMessages((prev) =>
+          prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+        );
+      });
+
+      groupChannel.bind("message-delete", (data: { messageId: string }) => {
+        setGroupMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      });
+
       // Subscribe to personal DMs channel
       const personalChannel = pusherClient.subscribe(`user-${myUserId}`);
       
@@ -289,7 +326,18 @@ export function StudyGroupChat() {
         }
       });
 
-      // Real-time message read receipts (blue double ticks)
+      // Real-time direct message edit & delete bindings
+      personalChannel.bind("dm-edit", (updatedMessage: DMMessage) => {
+        setDmMessages((prev) =>
+          prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+        );
+      });
+
+      personalChannel.bind("dm-delete", (data: { messageId: string }) => {
+        setDmMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      });
+
+      // Real-time direct message read receipts (blue double ticks)
       personalChannel.bind("dm-read", (data: { readerId: string }) => {
         if (selectedUser?.id === data.readerId) {
           setDmMessages((prev) =>
@@ -311,6 +359,50 @@ export function StudyGroupChat() {
       }
     };
   }, [myUserId, selectedUser, toast]);
+
+  // Context Menu Trigger
+  const handleContextMenu = (
+    e: React.MouseEvent,
+    msgId: string,
+    msgText: string,
+    msgUserId: string,
+    isDM: boolean
+  ) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      messageId: msgId,
+      text: msgText,
+      userId: msgUserId,
+      isDM
+    });
+  };
+
+  // Delete message handler
+  const handleDeleteMessage = async (messageId: string, isDM: boolean) => {
+    // Optimistically filter locally first
+    if (isDM) {
+      setDmMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } else {
+      setGroupMessages((prev) => prev.filter((m) => m.id !== messageId));
+    }
+
+    try {
+      const url = isDM 
+        ? `/api/chat/dm?messageId=${messageId}` 
+        : `/api/chat?messageId=${messageId}`;
+
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) {
+        toast({ title: "Failed to delete message", variant: "destructive" });
+      } else {
+        toast({ title: "Message deleted" });
+      }
+    } catch {
+      toast({ title: "Failed to delete message due to connection error", variant: "destructive" });
+    }
+  };
 
   // Handle local file upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,9 +441,46 @@ export function StudyGroupChat() {
     }
   };
 
-  // Send Message / Material
+  // Send / Edit Message
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Handle Edit Submit
+    if (editingMessage) {
+      const text = inputText;
+      const isDM = editingMessage.isDM;
+
+      // Optimistically edit message locally
+      if (isDM) {
+        setDmMessages((prev) =>
+          prev.map((m) => (m.id === editingMessage.id ? { ...m, text } : m))
+        );
+      } else {
+        setGroupMessages((prev) =>
+          prev.map((m) => (m.id === editingMessage.id ? { ...m, text } : m))
+        );
+      }
+
+      setEditingMessage(null);
+      setInputText("");
+
+      try {
+        const url = isDM ? "/api/chat/dm" : "/api/chat";
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageId: editingMessage.id, text })
+        });
+
+        if (!res.ok) {
+          toast({ title: "Failed to edit message", variant: "destructive" });
+        }
+      } catch {
+        toast({ title: "Failed to edit message due to connection error", variant: "destructive" });
+      }
+      return;
+    }
+
     if (!inputText.trim() && !shareUrl.trim()) return;
 
     const payload = {
@@ -669,16 +798,19 @@ export function StudyGroupChat() {
                           {(() => {
                             const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
                             return (
-                              <div className={cn(
-                                "rounded-2xl text-xs border relative overflow-hidden",
-                                hasOnlyImage 
-                                  ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
-                                  : "p-2.5",
-                                !hasOnlyImage && (isMe
-                                  ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
-                                  : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
-                                hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
-                              )}>
+                              <div 
+                                onContextMenu={(e) => handleContextMenu(e, msg.id, msg.text, msg.userId, false)}
+                                className={cn(
+                                  "rounded-2xl text-xs border relative overflow-hidden select-text cursor-default",
+                                  hasOnlyImage 
+                                    ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
+                                    : "p-2.5",
+                                  !hasOnlyImage && (isMe
+                                    ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
+                                    : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
+                                  hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
+                                )}
+                              >
                                 
                                 {/* Replied-To Message Header Quote Box */}
                                 {msg.replyTo && (
@@ -790,16 +922,19 @@ export function StudyGroupChat() {
                             {(() => {
                               const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
                               return (
-                                <div className={cn(
-                                  "rounded-2xl text-xs border relative overflow-hidden",
-                                  hasOnlyImage 
-                                    ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
-                                    : "p-2.5",
-                                  !hasOnlyImage && (isMe
-                                    ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
-                                    : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
-                                  hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
-                                )}>
+                                <div 
+                                  onContextMenu={(e) => handleContextMenu(e, msg.id, msg.text, msg.senderId, true)}
+                                  className={cn(
+                                    "rounded-2xl text-xs border relative overflow-hidden select-text cursor-default",
+                                    hasOnlyImage 
+                                      ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
+                                      : "p-2.5",
+                                    !hasOnlyImage && (isMe
+                                      ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
+                                      : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
+                                    hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
+                                  )}
+                                >
                                   
                                   {/* DM Replied-To Message Header Quote Box */}
                                   {msg.replyTo && (
@@ -893,6 +1028,30 @@ export function StudyGroupChat() {
             )
           )}
         </div>
+
+        {/* Editing Message Preview Banner directly above input bar */}
+        {editingMessage && (
+          <div className="bg-[#13131f] px-4 py-2 border-t border-white/10 border-l-4 border-amber-500 bg-amber-500/5 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">
+                Editing Message
+              </p>
+              <p className="text-xs text-gray-400 truncate mt-0.5">
+                {editingMessage.text}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingMessage(null);
+                setInputText("");
+              }}
+              className="p-1 rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Replying-to Preview Banner directly above input bar */}
         {replyToMessage && (
@@ -1027,7 +1186,7 @@ export function StudyGroupChat() {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={replyToMessage ? "Write a reply..." : (shareUrl ? "Add a caption/message for file..." : "Type a message...")}
+                placeholder={editingMessage ? "Save changes..." : (replyToMessage ? "Write a reply..." : (shareUrl ? "Add a caption/message for file..." : "Type a message..."))}
                 className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-violet-500 transition-all h-9 min-w-0"
               />
               
@@ -1066,6 +1225,44 @@ export function StudyGroupChat() {
           </div>
           
           <p className="text-gray-400 text-xs mt-4 font-sans">Click anywhere to close</p>
+        </div>
+      )}
+
+      {/* 5. RIGHT-CLICK CUSTOM CONTEXT MENU */}
+      {contextMenu && (
+        <div
+          className="fixed bg-[#181825] border border-white/10 rounded-lg shadow-xl py-1 z-50 text-xs w-28 animate-in fade-in duration-100 font-sans"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.userId === myUserId && (
+            <button
+              onClick={() => {
+                setEditingMessage({
+                  id: contextMenu.messageId,
+                  text: contextMenu.text,
+                  isDM: contextMenu.isDM
+                });
+                setInputText(contextMenu.text);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-gray-300 hover:text-white transition-colors"
+            >
+              ✏️ Edit
+            </button>
+          )}
+          
+          {(contextMenu.userId === myUserId || isAdmin) && (
+            <button
+              onClick={() => {
+                handleDeleteMessage(contextMenu.messageId, contextMenu.isDM);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors"
+            >
+              🗑️ Delete
+            </button>
+          )}
         </div>
       )}
     </div>
