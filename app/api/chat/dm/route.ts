@@ -17,6 +17,27 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Mark messages from targetUserId to us as read
+    await prisma.directMessage.updateMany({
+      where: {
+        senderId: targetUserId,
+        receiverId: session.user.id,
+        read: false,
+      },
+      data: {
+        read: true,
+      },
+    });
+
+    // Notify the target user that their sent messages have been read
+    try {
+      await pusherServer.trigger(`user-${targetUserId}`, "dm-read", {
+        readerId: session.user.id,
+      });
+    } catch (pusherErr) {
+      console.error("Pusher read receipt trigger failed:", pusherErr);
+    }
+
     const messages = await prisma.directMessage.findMany({
       where: {
         OR: [

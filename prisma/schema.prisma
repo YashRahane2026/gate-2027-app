@@ -131,6 +131,7 @@ model DirectMessage {
   text           String
   attachmentUrl  String?
   attachmentName String?
+  read           Boolean   @default(false)
   createdAt      DateTime  @default(now())
   sender         User      @relation("SentDMs", fields: [senderId], references: [id], onDelete: Cascade)
   receiver       User      @relation("ReceivedDMs", fields: [receiverId], references: [id], onDelete: Cascade)

@@ -13,6 +13,7 @@ interface User {
   name: string;
   image: string | null;
   isOnline?: boolean;
+  lastMessageAt?: string | null;
 }
 
 interface Message {
@@ -46,6 +47,7 @@ interface DMMessage {
   attachmentUrl: string | null;
   attachmentName: string | null;
   createdAt: string;
+  read?: boolean;
   sender: {
     id: string;
     name: string;
@@ -72,6 +74,30 @@ const isImageUrl = (url: string | null) => {
   if (url.startsWith("data:image/")) return true;
   const cleanUrl = url.split("?")[0].split("#")[0];
   return /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(cleanUrl);
+};
+
+const formatChatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  
+  const isSameDay = (d1: Date, d2: Date) => 
+    d1.getDate() === d2.getDate() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getFullYear() === d2.getFullYear();
+
+  if (isSameDay(date, today)) return "Today";
+
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (isSameDay(date, yesterday)) return "Yesterday";
+
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(today.getDate() - 7);
+  if (date > oneWeekAgo) {
+    return date.toLocaleDateString("en-US", { weekday: "long" });
+  }
+
+  return date.toLocaleDateString("en-GB"); // "dd/mm/yyyy" like "23/06/2026"
 };
 
 export function StudyGroupChat() {
@@ -213,6 +239,8 @@ export function StudyGroupChat() {
 
       // Subscribe to personal DMs channel
       const personalChannel = pusherClient.subscribe(`user-${myUserId}`);
+      
+      // Real-time direct message receive
       personalChannel.bind("dm", (newDM: DMMessage) => {
         setDmMessages((prev) => {
           if (prev.some((m) => m.id === newDM.id)) return prev;
@@ -237,6 +265,17 @@ export function StudyGroupChat() {
           return prev;
         });
 
+        // Update lastMessageAt to reorder lists in real time
+        setUsers((prevUsers) => {
+          const targetId = newDM.senderId === myUserId ? newDM.receiverId : newDM.senderId;
+          return prevUsers.map((u) => {
+            if (u.id === targetId) {
+              return { ...u, lastMessageAt: newDM.createdAt };
+            }
+            return u;
+          });
+        });
+
         // Push to unread senders state if not actively reading their messages
         if (newDM.senderId !== selectedUser?.id) {
           setUnreadSenders((prev) => {
@@ -249,6 +288,16 @@ export function StudyGroupChat() {
           });
         }
       });
+
+      // Real-time message read receipts (blue double ticks)
+      personalChannel.bind("dm-read", (data: { readerId: string }) => {
+        if (selectedUser?.id === data.readerId) {
+          setDmMessages((prev) =>
+            prev.map((m) => (m.senderId === myUserId ? { ...m, read: true } : m))
+          );
+        }
+      });
+
     } catch (err) {
       console.error("Pusher setup error in chat component:", err);
     }
@@ -350,6 +399,7 @@ export function StudyGroupChat() {
         attachmentName: payload.attachmentName,
         createdAt: new Date().toISOString(),
         replyToId: payload.replyToId,
+        read: false,
         sender: {
           id: myUserId!,
           name: session?.user?.name || "Me",
@@ -370,6 +420,16 @@ export function StudyGroupChat() {
         } : null
       };
       setDmMessages((prev) => [...prev, optimisticDM]);
+      
+      // Update sidebar sort timestamp on sending message
+      setUsers((prevUsers) => {
+        return prevUsers.map((u) => {
+          if (u.id === selectedUser.id) {
+            return { ...u, lastMessageAt: optimisticDM.createdAt };
+          }
+          return u;
+        });
+      });
     }
 
     // Reset inputs
@@ -430,46 +490,64 @@ export function StudyGroupChat() {
               {users.length === 0 ? (
                 <div className="text-center py-8 text-[10px] text-gray-500">No other members registered yet.</div>
               ) : (
-                users.map((u) => {
-                  const isOnline = u.isOnline;
-                  const hasUnread = unreadSenders.includes(u.id);
-                  return (
-                    <button
-                      key={u.id}
-                      onClick={() => setSelectedUser(u)}
-                      className={cn(
-                        "w-full flex items-center gap-2 p-2 rounded-lg text-left border transition-all",
-                        selectedUser?.id === u.id
-                          ? "border-violet-500/30 bg-violet-500/10 text-white"
-                          : "border-transparent hover:bg-white/5 text-gray-300"
-                      )}
-                    >
-                      <div className="relative flex-shrink-0">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
-                          {getInitials(u.name)}
+                [...users]
+                  .sort((a, b) => {
+                    const aUnread = unreadSenders.includes(a.id);
+                    const bUnread = unreadSenders.includes(b.id);
+                    // Pinned unread chats on top
+                    if (aUnread && !bUnread) return -1;
+                    if (!aUnread && bUnread) return 1;
+
+                    // Sort by last conversation time (newest first)
+                    const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+                    const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+                    if (aTime !== bTime) {
+                      return bTime - aTime;
+                    }
+
+                    // Fallback to alphabetical sorting
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map((u) => {
+                    const isOnline = u.isOnline;
+                    const hasUnread = unreadSenders.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedUser(u)}
+                        className={cn(
+                          "w-full flex items-center gap-2 p-2 rounded-lg text-left border transition-all",
+                          selectedUser?.id === u.id
+                            ? "border-violet-500/30 bg-violet-500/10 text-white"
+                            : "border-transparent hover:bg-white/5 text-gray-300"
+                        )}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
+                            {getInitials(u.name)}
+                          </div>
+                          {isOnline && (
+                            <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border-2 border-[#0d0d15]" />
+                          )}
                         </div>
-                        {isOnline && (
-                          <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border-2 border-[#0d0d15]" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-xs truncate">{u.name}</p>
-                        <p className={cn("text-[9px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
-                          {isOnline ? "Online" : "Offline"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {hasUnread ? (
-                          <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse flex-shrink-0">
-                            New
-                          </span>
-                        ) : (
-                          <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors flex-shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-xs truncate">{u.name}</p>
+                          <p className={cn("text-[9px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
+                            {isOnline ? "Online" : "Offline"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {hasUnread ? (
+                            <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse flex-shrink-0">
+                              New
+                            </span>
+                          ) : (
+                            <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors flex-shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
               )}
             </div>
           </div>
@@ -563,126 +641,30 @@ export function StudyGroupChat() {
                 💬 No messages yet. Say hello and share mock links, photos, or study material!
               </div>
             ) : (
-              groupMessages.map((msg) => {
+              groupMessages.map((msg, index) => {
                 const isMe = msg.userId === myUserId;
+                const prevMsg = groupMessages[index - 1];
+                const showDateSeparator = !prevMsg || 
+                  new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
+
                 return (
-                  <div key={msg.id} className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
-                    {!isMe && (
-                      <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">
-                        {getInitials(msg.user?.name || "User")}
+                  <div key={msg.id} className="space-y-4">
+                    {showDateSeparator && (
+                      <div className="flex justify-center my-3 select-none">
+                        <span className="bg-[#1e1e2f] border border-white/5 text-[9px] text-gray-400 px-3 py-1 rounded-full font-semibold font-sans uppercase tracking-wider shadow-md">
+                          {formatChatDate(msg.createdAt)}
+                        </span>
                       </div>
                     )}
-                    <div className={cn("flex gap-2 max-w-[75%]", isMe ? "flex-row-reverse" : "flex-row")}>
-                      <div className="space-y-1 min-w-0">
-                        {!isMe && <p className="text-[10px] text-gray-500">{msg.user?.name}</p>}
-                        
-                        {(() => {
-                          const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
-                          return (
-                            <div className={cn(
-                              "rounded-2xl text-xs border relative overflow-hidden",
-                              hasOnlyImage 
-                                ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
-                                : "p-2.5",
-                              !hasOnlyImage && (isMe
-                                ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
-                                : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
-                              hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
-                            )}>
-                              
-                              {/* Replied-To Message Header Quote Box */}
-                              {msg.replyTo && (
-                                <div className={cn(
-                                  "mb-1.5 p-1.5 rounded-lg text-[10px] border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
-                                  isMe ? "border-violet-300" : "border-violet-500"
-                                )}>
-                                  <p className="font-semibold text-[9px] text-violet-300">
-                                    {msg.replyTo.user?.id === myUserId ? "You" : msg.replyTo.user?.name}
-                                  </p>
-                                  <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
-                                </div>
-                              )}
-
-                              {!hasOnlyImage && msg.text && <p className="break-words whitespace-pre-wrap">{msg.text}</p>}
-                              
-                              {/* Photo / Material attachment */}
-                              {msg.attachmentUrl && (
-                                isImageUrl(msg.attachmentUrl) ? (
-                                  <div className={cn(
-                                    "overflow-hidden border border-white/10 bg-black/25",
-                                    hasOnlyImage ? "rounded-xl" : "mt-1.5 rounded-xl"
-                                  )}>
-                                    <img
-                                      src={msg.attachmentUrl}
-                                      alt={msg.attachmentName || "Attached image"}
-                                      className="w-full h-auto max-h-64 object-cover hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
-                                      onClick={() => setActiveLightboxImage(msg.attachmentUrl)}
-                                    />
-                                    {!hasOnlyImage && msg.attachmentName && (
-                                      <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
-                                        📸 {msg.attachmentName}
-                                      </p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <a
-                                    href={msg.attachmentUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={cn(
-                                      "mt-1.5 p-2 rounded-xl flex items-center gap-1.5 text-[10px] font-medium border transition-colors",
-                                      isMe
-                                        ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
-                                        : "bg-[#13131f] border-white/10 text-violet-300 hover:text-violet-200"
-                                    )}
-                                  >
-                                    <FileText className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate flex-1">
-                                      {msg.attachmentName || "Download shared file"}
-                                    </span>
-                                  </a>
-                                )
-                              )}
-                            </div>
-                          );
-                        })()}
-                        
-                        <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-
-                      {/* WhatsApp-like Reply Icon Button on message hover */}
-                      <button
-                        type="button"
-                        onClick={() => setReplyToMessage({
-                          id: msg.id,
-                          text: msg.text,
-                          senderName: isMe ? "You" : (msg.user?.name || "User")
-                        })}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center self-center h-7 w-7"
-                        title="Reply"
-                      >
-                        <CornerUpLeft className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )
-          ) : (
-            selectedUser && (
-              dmMessages.length === 0 ? (
-                <div className="text-center py-20 text-gray-500 text-xs">
-                  🔒 Private chat with {selectedUser.name}. Start a conversation!
-                </div>
-              ) : (
-                dmMessages.map((msg) => {
-                  const isMe = msg.senderId === myUserId;
-                  return (
-                    <div key={msg.id} className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
+                    <div className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
+                      {!isMe && (
+                        <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">
+                          {getInitials(msg.user?.name || "User")}
+                        </div>
+                      )}
                       <div className={cn("flex gap-2 max-w-[75%]", isMe ? "flex-row-reverse" : "flex-row")}>
                         <div className="space-y-1 min-w-0">
+                          {!isMe && <p className="text-[10px] text-gray-500">{msg.user?.name}</p>}
                           
                           {(() => {
                             const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
@@ -693,19 +675,19 @@ export function StudyGroupChat() {
                                   ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
                                   : "p-2.5",
                                 !hasOnlyImage && (isMe
-                                  ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
+                                  ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
                                   : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
                                 hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
                               )}>
                                 
-                                {/* DM Replied-To Message Header Quote Box */}
+                                {/* Replied-To Message Header Quote Box */}
                                 {msg.replyTo && (
                                   <div className={cn(
                                     "mb-1.5 p-1.5 rounded-lg text-[10px] border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
-                                    isMe ? "border-blue-300" : "border-blue-500"
+                                    isMe ? "border-violet-300" : "border-violet-500"
                                   )}>
-                                    <p className="font-semibold text-[9px] text-blue-300">
-                                      {msg.replyTo.sender?.id === myUserId ? "You" : msg.replyTo.sender?.name}
+                                    <p className="font-semibold text-[9px] text-violet-300">
+                                      {msg.replyTo.user?.id === myUserId ? "You" : msg.replyTo.user?.name}
                                     </p>
                                     <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
                                   </div>
@@ -713,7 +695,7 @@ export function StudyGroupChat() {
 
                                 {!hasOnlyImage && msg.text && <p className="break-words whitespace-pre-wrap">{msg.text}</p>}
                                 
-                                {/* DM Photo / Material attachment */}
+                                {/* Photo / Material attachment */}
                                 {msg.attachmentUrl && (
                                   isImageUrl(msg.attachmentUrl) ? (
                                     <div className={cn(
@@ -741,7 +723,7 @@ export function StudyGroupChat() {
                                         "mt-1.5 p-2 rounded-xl flex items-center gap-1.5 text-[10px] font-medium border transition-colors",
                                         isMe
                                           ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
-                                          : "bg-[#13131f] border-white/10 text-blue-300 hover:text-blue-200"
+                                          : "bg-[#13131f] border-white/10 text-violet-300 hover:text-violet-200"
                                       )}
                                     >
                                       <FileText className="w-3 h-3 flex-shrink-0" />
@@ -754,25 +736,155 @@ export function StudyGroupChat() {
                               </div>
                             );
                           })()}
-
+                          
                           <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
 
-                        {/* WhatsApp-like Reply Icon Button on DM hover */}
+                        {/* WhatsApp-like Reply Icon Button on message hover */}
                         <button
                           type="button"
                           onClick={() => setReplyToMessage({
                             id: msg.id,
                             text: msg.text,
-                            senderName: isMe ? "You" : (msg.sender.name || "User")
+                            senderName: isMe ? "You" : (msg.user?.name || "User")
                           })}
                           className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center self-center h-7 w-7"
                           title="Reply"
                         >
                           <CornerUpLeft className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )
+          ) : (
+            selectedUser && (
+              dmMessages.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 text-xs">
+                  🔒 Private chat with {selectedUser.name}. Start a conversation!
+                </div>
+              ) : (
+                dmMessages.map((msg, index) => {
+                  const isMe = msg.senderId === myUserId;
+                  const prevMsg = dmMessages[index - 1];
+                  const showDateSeparator = !prevMsg || 
+                    new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
+
+                  return (
+                    <div key={msg.id} className="space-y-4">
+                      {showDateSeparator && (
+                        <div className="flex justify-center my-3 select-none">
+                          <span className="bg-[#1e1e2f] border border-white/5 text-[9px] text-gray-400 px-3 py-1 rounded-full font-semibold font-sans uppercase tracking-wider shadow-md">
+                            {formatChatDate(msg.createdAt)}
+                          </span>
+                        </div>
+                      )}
+                      <div className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
+                        <div className={cn("flex gap-2 max-w-[75%]", isMe ? "flex-row-reverse" : "flex-row")}>
+                          <div className="space-y-1 min-w-0">
+                            
+                            {(() => {
+                              const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;
+                              return (
+                                <div className={cn(
+                                  "rounded-2xl text-xs border relative overflow-hidden",
+                                  hasOnlyImage 
+                                    ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
+                                    : "p-2.5",
+                                  !hasOnlyImage && (isMe
+                                    ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
+                                    : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"),
+                                  hasOnlyImage && (isMe ? "rounded-tr-none" : "rounded-tl-none")
+                                )}>
+                                  
+                                  {/* DM Replied-To Message Header Quote Box */}
+                                  {msg.replyTo && (
+                                    <div className={cn(
+                                      "mb-1.5 p-1.5 rounded-lg text-[10px] border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
+                                      isMe ? "border-blue-300" : "border-blue-500"
+                                    )}>
+                                      <p className="font-semibold text-[9px] text-blue-300">
+                                        {msg.replyTo.sender?.id === myUserId ? "You" : msg.replyTo.sender?.name}
+                                      </p>
+                                      <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
+                                    </div>
+                                  )}
+
+                                  {!hasOnlyImage && msg.text && <p className="break-words whitespace-pre-wrap">{msg.text}</p>}
+                                  
+                                  {/* DM Photo / Material attachment */}
+                                  {msg.attachmentUrl && (
+                                    isImageUrl(msg.attachmentUrl) ? (
+                                      <div className={cn(
+                                        "overflow-hidden border border-white/10 bg-black/25",
+                                        hasOnlyImage ? "rounded-xl" : "mt-1.5 rounded-xl"
+                                      )}>
+                                        <img
+                                          src={msg.attachmentUrl}
+                                          alt={msg.attachmentName || "Attached image"}
+                                          className="w-full h-auto max-h-64 object-cover hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                          onClick={() => setActiveLightboxImage(msg.attachmentUrl)}
+                                        />
+                                        {!hasOnlyImage && msg.attachmentName && (
+                                          <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
+                                            📸 {msg.attachmentName}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <a
+                                        href={msg.attachmentUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={cn(
+                                          "mt-1.5 p-2 rounded-xl flex items-center gap-1.5 text-[10px] font-medium border transition-colors",
+                                          isMe
+                                            ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
+                                            : "bg-[#13131f] border-white/10 text-blue-300 hover:text-blue-200"
+                                        )}
+                                      >
+                                        <FileText className="w-3 h-3 flex-shrink-0" />
+                                        <span className="truncate flex-1">
+                                          {msg.attachmentName || "Download shared file"}
+                                        </span>
+                                      </a>
+                                    )
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            <p className={cn("text-[9px] text-gray-600 flex items-center justify-end gap-1", isMe ? "text-right" : "text-left")}>
+                              <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {isMe && (
+                                <span className={cn(
+                                  "text-[9px] font-bold select-none leading-none",
+                                  msg.id.startsWith("temp-") ? "text-gray-500" : (msg.read ? "text-sky-400 font-extrabold" : "text-gray-500")
+                                )}>
+                                  {msg.id.startsWith("temp-") ? "✓" : "✓✓"}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+
+                          {/* WhatsApp-like Reply Icon Button on DM hover */}
+                          <button
+                            type="button"
+                            onClick={() => setReplyToMessage({
+                              id: msg.id,
+                              text: msg.text,
+                              senderName: isMe ? "You" : (msg.sender.name || "User")
+                            })}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center self-center h-7 w-7"
+                            title="Reply"
+                          >
+                            <CornerUpLeft className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

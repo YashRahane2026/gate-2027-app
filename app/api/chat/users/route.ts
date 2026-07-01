@@ -9,6 +9,32 @@ export async function GET() {
   }
 
   try {
+    // Fetch DMs involving the user to find the latest conversation times
+    const lastDMs = await prisma.directMessage.findMany({
+      where: {
+        OR: [
+          { senderId: session.user.id },
+          { receiverId: session.user.id }
+        ]
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    const lastMessageMap: Record<string, Date> = {};
+    for (const dm of lastDMs) {
+      const otherId = dm.senderId === session.user.id ? dm.receiverId : dm.senderId;
+      if (!lastMessageMap[otherId]) {
+        lastMessageMap[otherId] = dm.createdAt;
+      }
+    }
+
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -37,7 +63,8 @@ export async function GET() {
         id: u.id,
         name: isMe ? `${u.name} (You)` : u.name,
         image: u.image,
-        isOnline: !!isOnline
+        isOnline: !!isOnline,
+        lastMessageAt: lastMessageMap[u.id] ? lastMessageMap[u.id].toISOString() : null
       };
     });
 
