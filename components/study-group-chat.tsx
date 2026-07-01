@@ -104,13 +104,18 @@ export function StudyGroupChat() {
   const [loadingDMs, setLoadingDMs] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const feedContainerRef = useRef<HTMLDivElement>(null);
 
   const myUserId = session?.user?.id;
 
-  // Scroll to bottom helper
+  // Scroll to bottom helper (internally scrolls the chat feed only, preventing parent window jumping)
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (feedContainerRef.current) {
+      feedContainerRef.current.scrollTo({
+        top: feedContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   };
 
   useEffect(() => {
@@ -392,32 +397,14 @@ export function StudyGroupChat() {
   return (
     <div className="bg-[#13131f] border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row h-[550px]">
       
-      {/* 1. LEFT SIDEBAR - Channel & Direct Message list */}
-      <div className={cn(
-        "w-full md:w-48 border-r border-white/10 flex flex-col bg-[#0d0d15] transition-all flex-shrink-0",
-        activeTab === "dm" && selectedUser ? "hidden md:flex" : "flex"
-      )}>
-        {/* Channels/Users List Container */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-          {activeTab === "group" ? (
-            <button
-              onClick={() => setSelectedUser(null)}
-              className={cn(
-                "w-full flex items-center gap-2 p-2 rounded-xl text-left border transition-all",
-                !selectedUser
-                  ? "border-violet-500/30 bg-violet-500/10 text-white"
-                  : "border-transparent hover:bg-white/5 text-gray-300"
-              )}
-            >
-              <div className="w-8 h-8 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm flex-shrink-0">
-                📢
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-xs truncate">Study Material & General</p>
-                <p className="text-[10px] text-gray-500 truncate">Global discussion channel</p>
-              </div>
-            </button>
-          ) : (
+      {/* 1. LEFT SIDEBAR - Direct Message users list (hidden in Group chat to save space) */}
+      {activeTab === "dm" && (
+        <div className={cn(
+          "w-full md:w-48 border-r border-white/10 flex flex-col bg-[#0d0d15] transition-all flex-shrink-0",
+          activeTab === "dm" && selectedUser ? "hidden md:flex" : "flex"
+        )}>
+          {/* Users List Container */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
             <div className="space-y-1">
               <p className="text-[10px] font-bold text-gray-500 uppercase px-2 mb-1">Members</p>
               {users.length === 0 ? (
@@ -456,9 +443,9 @@ export function StudyGroupChat() {
                 })
               )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. MIDDLE NARROW VERTICAL NAV */}
       <div className={cn(
@@ -528,7 +515,7 @@ export function StudyGroupChat() {
         </div>
 
         {/* Message feed */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={feedContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           
           {/* DM Load Indicator */}
           {loadingDMs && (
@@ -759,7 +746,6 @@ export function StudyGroupChat() {
               )
             )
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Replying-to Preview Banner directly above input bar */}

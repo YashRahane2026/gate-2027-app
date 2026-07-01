@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts";
-import { SYLLABUS_SECTIONS } from "@/lib/syllabus-config";
+import { getSyllabusSections } from "@/lib/syllabus-config";
 import { SyllabusItemData, getSyllabusStats } from "@/types/syllabus";
 
 interface WeightedGaugeProps {
@@ -12,11 +12,7 @@ interface WeightedGaugeProps {
 
 export function WeightedGauge({ items, stream }: WeightedGaugeProps) {
   const weightedCompletion = useMemo(() => {
-    const allowedSections = SYLLABUS_SECTIONS.filter((s) => {
-      if (s.name === "Core CS") return stream === "CSE";
-      if (s.name === "Core DA") return stream === "DA";
-      return true;
-    });
+    const allowedSections = getSyllabusSections(stream);
     const allowedSubjects = allowedSections.flatMap((s) => s.subjects);
     const totalWeight = allowedSubjects.reduce((sum, s) => sum + s.weightage, 0);
 

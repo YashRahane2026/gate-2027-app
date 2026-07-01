@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { WeightedGauge } from "@/components/weighted-gauge";
 import { SyllabusAccordion } from "@/components/syllabus-accordion";
-import { SYLLABUS_SECTIONS } from "@/lib/syllabus-config";
+import { getSyllabusSections } from "@/lib/syllabus-config";
 import { SyllabusItemData, getSyllabusStats } from "@/types/syllabus";
 import { cn } from "@/lib/utils";
 
@@ -48,11 +48,7 @@ export default function SyllabusPage() {
     );
   }
 
-  const filteredSections = SYLLABUS_SECTIONS.filter((section) => {
-    if (section.name === "Core CS") return stream === "CSE";
-    if (section.name === "Core DA") return stream === "DA";
-    return true;
-  });
+  const filteredSections = getSyllabusSections(stream);
 
   const allowedSubjects = filteredSections.flatMap((s) => s.subjects.map((sub) => sub.name));
   const streamItems = items.filter((item) => allowedSubjects.includes(item.subject));
