@@ -70,9 +70,9 @@ interface DMMessage {
 }
 
 const ADMIN_EMAILS = [
-  "abc@gmail.com",
-  "yashd@google.com",
+  "yash.dr2004@gmail.com",
   "yashrahane2026@gmail.com",
+  "yashd@google.com",
   "yashd@live.com"
 ];
 
@@ -279,6 +279,20 @@ export function StudyGroupChat() {
         setGroupMessages((prev) => prev.filter((m) => m.id !== data.messageId));
       });
 
+      groupChannel.bind("user-remove", (data: { userId: string }) => {
+        setUsers((prev) => prev.filter((u) => u.id !== data.userId));
+        setSelectedUser((prev) => {
+          if (prev?.id === data.userId) {
+            toast({
+              title: "User removed",
+              description: "The active user has been removed from the platform by an administrator."
+            });
+            return null;
+          }
+          return prev;
+        });
+      });
+
       // Subscribe to personal DMs channel
       const personalChannel = pusherClient.subscribe(`user-${myUserId}`);
       
@@ -406,6 +420,29 @@ export function StudyGroupChat() {
       }
     } catch {
       toast({ title: "Failed to delete message due to connection error", variant: "destructive" });
+    }
+  };
+
+  const handleRemoveUser = async (userId: string, name: string) => {
+    if (!confirm(`⚠️ WARNING: Are you sure you want to permanently remove "${name}" from the platform?\n\nThis will completely delete their account, their progress stats, and all their messages from the database.`)) {
+      return;
+    }
+
+    // Optimistically remove from state
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    if (selectedUser?.id === userId) {
+      setSelectedUser(null);
+    }
+
+    try {
+      const res = await fetch(`/api/chat/users?userId=${userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast({ title: "Failed to remove user", variant: "destructive" });
+      } else {
+        toast({ title: `Permanently removed user ${name}` });
+      }
+    } catch {
+      toast({ title: "Network error occurred while removing user", variant: "destructive" });
     }
   };
 
@@ -646,40 +683,54 @@ export function StudyGroupChat() {
                     const isOnline = u.isOnline;
                     const hasUnread = unreadSenders.includes(u.id);
                     return (
-                      <button
-                        key={u.id}
-                        onClick={() => setSelectedUser(u)}
-                        className={cn(
-                          "w-full flex items-center gap-2 p-2 rounded-lg text-left border transition-all",
-                          selectedUser?.id === u.id
-                            ? "border-violet-500/30 bg-violet-500/10 text-white"
-                            : "border-transparent hover:bg-white/5 text-gray-300"
-                        )}
-                      >
-                        <div className="relative flex-shrink-0">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
-                            {getInitials(u.name)}
+                      <div key={u.id} className="relative group/member">
+                        <button
+                          onClick={() => setSelectedUser(u)}
+                          className={cn(
+                            "w-full flex items-center gap-2 p-2 rounded-lg text-left border transition-all pr-8",
+                            selectedUser?.id === u.id
+                              ? "border-violet-500/30 bg-violet-500/10 text-white"
+                              : "border-transparent hover:bg-white/5 text-gray-300"
+                          )}
+                        >
+                          <div className="relative flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
+                              {getInitials(u.name)}
+                            </div>
+                            {isOnline && (
+                              <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border-2 border-[#0d0d15]" />
+                            )}
                           </div>
-                          {isOnline && (
-                            <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border-2 border-[#0d0d15]" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-xs truncate">{u.name}</p>
-                          <p className={cn("text-[9px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
-                            {isOnline ? "Online" : "Offline"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {hasUnread ? (
-                            <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse flex-shrink-0">
-                              New
-                            </span>
-                          ) : (
-                            <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors flex-shrink-0" />
-                          )}
-                        </div>
-                      </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-xs truncate">{u.name}</p>
+                            <p className={cn("text-[9px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
+                              {isOnline ? "Online" : "Offline"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {hasUnread ? (
+                              <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse flex-shrink-0">
+                                New
+                              </span>
+                            ) : (
+                              <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors flex-shrink-0" />
+                            )}
+                          </div>
+                        </button>
+                        
+                        {isAdmin && u.id !== myUserId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveUser(u.id, u.name);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/member:opacity-100 p-1 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-all z-10"
+                            title="Remove User"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     );
                   })
               )}

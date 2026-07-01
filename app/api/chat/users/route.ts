@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -71,6 +71,65 @@ export async function GET() {
     return NextResponse.json({ users: mappedUsers });
   } catch (error) {
     console.error("Failed to fetch chat users:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+const ADMIN_EMAILS = [
+  "yash.dr2004@gmail.com",
+  "yashrahane2026@gmail.com",
+  "yashd@google.com",
+  "yashd@live.com"
+];
+
+function checkIsAdmin(email?: string | null, name?: string | null) {
+  if (!email) return false;
+  const emailLower = email.toLowerCase();
+  const isAdminEmail = ADMIN_EMAILS.includes(emailLower) ||
+                       emailLower.includes("yashrahane") ||
+                       emailLower.includes("yashd");
+  const isAdminName = name && name.toLowerCase().includes("yash rahane");
+  return !!(isAdminEmail || isAdminName);
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const isAdmin = checkIsAdmin(session.user.email, session.user.name);
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden: Admin privileges required" }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+
+    if (userId === session.user.id) {
+      return NextResponse.json({ error: "You cannot remove yourself" }, { status: 400 });
+    }
+
+    // Cascade deletes all related messages and stats
+    await prisma.user.delete({
+      where: { id: userId }
+    });
+
+    const { pusherServer } = await import("@/lib/pusher");
+    try {
+      await pusherServer.trigger("chat", "user-remove", { userId });
+    } catch (pusherErr) {
+      console.error("Pusher user-remove trigger failed:", pusherErr);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete user:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
