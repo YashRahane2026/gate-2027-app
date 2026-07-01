@@ -86,6 +86,8 @@ export function StudyGroupChat() {
   const [users, setUsers] = useState<User[]>([]);
   const [groupMessages, setGroupMessages] = useState<Message[]>([]);
   const [dmMessages, setDmMessages] = useState<DMMessage[]>([]);
+  const [unreadSenders, setUnreadSenders] = useState<string[]>([]);
+  const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
   
   // Inputs & Uploads
   const [inputText, setInputText] = useState("");
@@ -175,6 +177,13 @@ export function StudyGroupChat() {
     fetchDMs();
   }, [selectedUser, myUserId]);
 
+  // Clear unread sender badge when chat is opened
+  useEffect(() => {
+    if (selectedUser) {
+      setUnreadSenders((prev) => prev.filter((id) => id !== selectedUser.id));
+    }
+  }, [selectedUser]);
+
   // Pusher subscriptions
   useEffect(() => {
     if (!myUserId) return;
@@ -228,7 +237,12 @@ export function StudyGroupChat() {
           return prev;
         });
 
+        // Push to unread senders state if not actively reading their messages
         if (newDM.senderId !== selectedUser?.id) {
+          setUnreadSenders((prev) => {
+            if (prev.includes(newDM.senderId)) return prev;
+            return [...prev, newDM.senderId];
+          });
           toast({
             title: `New DM from ${newDM.sender.name}`,
             description: newDM.text || "Shared a photo/file",
@@ -401,7 +415,7 @@ export function StudyGroupChat() {
   }
 
   return (
-    <div className="bg-[#13131f] border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row h-[550px]">
+    <div className="bg-[#13131f] border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row h-[550px] relative">
       
       {/* 1. LEFT SIDEBAR - Direct Message users list (hidden in Group chat to save space) */}
       {activeTab === "dm" && (
@@ -418,6 +432,7 @@ export function StudyGroupChat() {
               ) : (
                 users.map((u) => {
                   const isOnline = u.isOnline;
+                  const hasUnread = unreadSenders.includes(u.id);
                   return (
                     <button
                       key={u.id}
@@ -443,7 +458,15 @@ export function StudyGroupChat() {
                           {isOnline ? "Online" : "Offline"}
                         </p>
                       </div>
-                      <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors" />
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {hasUnread ? (
+                          <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse flex-shrink-0">
+                            New
+                          </span>
+                        ) : (
+                          <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors flex-shrink-0" />
+                        )}
+                      </div>
                     </button>
                   );
                 })
@@ -479,7 +502,12 @@ export function StudyGroupChat() {
               : "text-gray-400 hover:text-white hover:bg-white/5"
           )}
         >
-          <MessageSquare className="w-4 h-4" />
+          <div className="relative">
+            <MessageSquare className="w-4 h-4" />
+            {unreadSenders.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full border border-[#0b0b10] animate-pulse" />
+            )}
+          </div>
           DM
         </button>
       </div>
@@ -588,7 +616,7 @@ export function StudyGroupChat() {
                                       src={msg.attachmentUrl}
                                       alt={msg.attachmentName || "Attached image"}
                                       className="w-full h-auto max-h-64 object-cover hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
-                                      onClick={() => window.open(msg.attachmentUrl!, "_blank")}
+                                      onClick={() => setActiveLightboxImage(msg.attachmentUrl)}
                                     />
                                     {!hasOnlyImage && msg.attachmentName && (
                                       <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
@@ -696,7 +724,7 @@ export function StudyGroupChat() {
                                         src={msg.attachmentUrl}
                                         alt={msg.attachmentName || "Attached image"}
                                         className="w-full h-auto max-h-64 object-cover hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
-                                        onClick={() => window.open(msg.attachmentUrl!, "_blank")}
+                                        onClick={() => setActiveLightboxImage(msg.attachmentUrl)}
                                       />
                                       {!hasOnlyImage && msg.attachmentName && (
                                         <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
@@ -901,6 +929,33 @@ export function StudyGroupChat() {
           </form>
         )}
       </div>
+
+      {/* 4. PREMIUM LIGHTBOX OVERLAY */}
+      {activeLightboxImage && (
+        <div 
+          className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setActiveLightboxImage(null)}
+        >
+          {/* Close Button */}
+          <button 
+            onClick={() => setActiveLightboxImage(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          {/* Image Container */}
+          <div className="relative max-w-full max-h-[85vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={activeLightboxImage} 
+              alt="Full size view" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200"
+            />
+          </div>
+          
+          <p className="text-gray-400 text-xs mt-4 font-sans">Click anywhere to close</p>
+        </div>
+      )}
     </div>
   );
 }
