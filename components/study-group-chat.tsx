@@ -69,6 +69,7 @@ interface DMMessage {
 
 const isImageUrl = (url: string | null) => {
   if (!url) return false;
+  if (url.startsWith("data:image/")) return true;
   const cleanUrl = url.split("?")[0].split("#")[0];
   return /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(cleanUrl);
 };
@@ -553,7 +554,7 @@ export function StudyGroupChat() {
                             <div className={cn(
                               "rounded-2xl text-xs border relative overflow-hidden",
                               hasOnlyImage 
-                                ? "p-1 bg-black/20 border-white/10 max-w-[180px]" 
+                                ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
                                 : "p-2.5",
                               !hasOnlyImage && (isMe
                                 ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
@@ -586,7 +587,7 @@ export function StudyGroupChat() {
                                     <img
                                       src={msg.attachmentUrl}
                                       alt={msg.attachmentName || "Attached image"}
-                                      className="w-full h-auto max-h-40 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                      className="w-full h-auto max-h-64 object-cover hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
                                       onClick={() => window.open(msg.attachmentUrl!, "_blank")}
                                     />
                                     {!hasOnlyImage && msg.attachmentName && (
@@ -661,7 +662,7 @@ export function StudyGroupChat() {
                               <div className={cn(
                                 "rounded-2xl text-xs border relative overflow-hidden",
                                 hasOnlyImage 
-                                  ? "p-1 bg-black/20 border-white/10 max-w-[180px]" 
+                                  ? "p-1 bg-black/20 border-white/10 max-w-[280px]" 
                                   : "p-2.5",
                                 !hasOnlyImage && (isMe
                                   ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
@@ -694,7 +695,7 @@ export function StudyGroupChat() {
                                       <img
                                         src={msg.attachmentUrl}
                                         alt={msg.attachmentName || "Attached image"}
-                                        className="w-full h-auto max-h-40 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                        className="w-full h-auto max-h-64 object-cover hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
                                         onClick={() => window.open(msg.attachmentUrl!, "_blank")}
                                       />
                                       {!hasOnlyImage && msg.attachmentName && (
