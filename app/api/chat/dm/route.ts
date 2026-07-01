@@ -42,6 +42,16 @@ export async function GET(req: NextRequest) {
             image: true,
           },
         },
+        replyTo: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -60,7 +70,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { receiverId, text, attachmentUrl, attachmentName } = body;
+    const { receiverId, text, attachmentUrl, attachmentName, replyToId } = body;
 
     if (!receiverId) {
       return NextResponse.json({ error: "Recipient user ID is required" }, { status: 400 });
@@ -77,6 +87,7 @@ export async function POST(req: NextRequest) {
         text: text || "",
         attachmentUrl: attachmentUrl || null,
         attachmentName: attachmentName || null,
+        replyToId: replyToId || null,
       },
       include: {
         sender: {
@@ -91,6 +102,16 @@ export async function POST(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+          },
+        },
+        replyTo: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },

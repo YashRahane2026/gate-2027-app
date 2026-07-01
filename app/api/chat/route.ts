@@ -23,6 +23,16 @@ export async function GET() {
             image: true,
           },
         },
+        replyTo: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -42,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { text, attachmentUrl, attachmentName } = body;
+    const { text, attachmentUrl, attachmentName, replyToId } = body;
 
     if (!text && !attachmentUrl) {
       return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
@@ -54,6 +64,7 @@ export async function POST(req: NextRequest) {
         text: text || "",
         attachmentUrl: attachmentUrl || null,
         attachmentName: attachmentName || null,
+        replyToId: replyToId || null,
       },
       include: {
         user: {
@@ -61,6 +72,16 @@ export async function POST(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+          },
+        },
+        replyTo: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },

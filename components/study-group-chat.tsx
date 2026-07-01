@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { getPusherClient } from "@/lib/pusher";
 import { getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { Send, Link2, MessageSquare, Users, FileText, ChevronLeft, ArrowRight } from "lucide-react";
+import { Send, Link2, MessageSquare, Users, FileText, ChevronLeft, ArrowRight, CornerUpLeft, X, Paperclip } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface User {
@@ -26,6 +26,15 @@ interface Message {
     name: string;
     image: string | null;
   };
+  replyToId?: string | null;
+  replyTo?: {
+    id: string;
+    text: string;
+    user?: {
+      id: string;
+      name: string;
+    };
+  } | null;
 }
 
 interface DMMessage {
@@ -46,7 +55,22 @@ interface DMMessage {
     name: string;
     image: string | null;
   };
+  replyToId?: string | null;
+  replyTo?: {
+    id: string;
+    text: string;
+    sender?: {
+      id: string;
+      name: string;
+    };
+  } | null;
 }
+
+const isImageUrl = (url: string | null) => {
+  if (!url) return false;
+  const cleanUrl = url.split("?")[0].split("#")[0];
+  return /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(cleanUrl);
+};
 
 export function StudyGroupChat() {
   const { data: session } = useSession();
@@ -61,16 +85,36 @@ export function StudyGroupChat() {
   const [groupMessages, setGroupMessages] = useState<Message[]>([]);
   const [dmMessages, setDmMessages] = useState<DMMessage[]>([]);
   
-  // Inputs
+  // Inputs & Uploads
   const [inputText, setInputText] = useState("");
   const [showShareForm, setShowShareForm] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareName, setShareName] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // Reply State
+  const [replyToMessage, setReplyToMessage] = useState<{
+    id: string;
+    text: string;
+    senderName: string;
+  } | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadingDMs, setLoadingDMs] = useState(false);
   
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const myUserId = session?.user?.id;
+
+  // Scroll to bottom helper
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [groupMessages, dmMessages, selectedUser, activeTab]);
 
   // Fetch Users & Group Messages
   useEffect(() => {
@@ -136,7 +180,6 @@ export function StudyGroupChat() {
       const groupChannel = pusherClient.subscribe("chat");
       groupChannel.bind("message", (newMessage: Message) => {
         setGroupMessages((prev) => {
-          // Avoid duplicates
           if (prev.some((m) => m.id === newMessage.id)) return prev;
           return [...prev, newMessage];
         });
@@ -145,7 +188,6 @@ export function StudyGroupChat() {
       // Subscribe to personal DMs channel
       const personalChannel = pusherClient.subscribe(`user-${myUserId}`);
       personalChannel.bind("dm", (newDM: DMMessage) => {
-        // Append DM if it belongs to active chat or updates unread counts
         setDmMessages((prev) => {
           if (prev.some((m) => m.id === newDM.id)) return prev;
           
@@ -159,11 +201,10 @@ export function StudyGroupChat() {
           return prev;
         });
 
-        // Notify user if message is from someone else and not selected
         if (newDM.senderId !== selectedUser?.id) {
           toast({
             title: `New DM from ${newDM.sender.name}`,
-            description: newDM.text || "Shared a link/material",
+            description: newDM.text || "Shared a photo/file",
           });
         }
       });
@@ -181,6 +222,38 @@ export function StudyGroupChat() {
     };
   }, [myUserId, selectedUser, toast]);
 
+  // Handle local file upload
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setShareUrl(data.url);
+        setShareName(data.name);
+        toast({ title: "File uploaded successfully!" });
+      } else {
+        toast({ title: "Upload failed", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Upload failed due to connection error", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      // Reset input value to allow uploading same file name again
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   // Send Message / Material
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,14 +263,16 @@ export function StudyGroupChat() {
       text: inputText,
       attachmentUrl: shareUrl || null,
       attachmentName: shareName || null,
+      replyToId: replyToMessage?.id || null,
       receiverId: activeTab === "dm" ? selectedUser?.id : undefined
     };
 
-    // Optimistic reset
+    // Reset inputs
     setInputText("");
     setShareUrl("");
     setShareName("");
     setShowShareForm(false);
+    setReplyToMessage(null);
 
     try {
       const url = activeTab === "group" ? "/api/chat" : "/api/chat/dm";
@@ -353,51 +428,98 @@ export function StudyGroupChat() {
           {activeTab === "group" ? (
             groupMessages.length === 0 ? (
               <div className="text-center py-20 text-gray-500 text-xs">
-                💬 No messages yet. Say hello and share mock links or study material!
+                💬 No messages yet. Say hello and share mock links, photos, or study material!
               </div>
             ) : (
               groupMessages.map((msg) => {
                 const isMe = msg.userId === myUserId;
                 return (
-                  <div key={msg.id} className={cn("flex gap-3", isMe ? "justify-end" : "justify-start")}>
+                  <div key={msg.id} className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
                     {!isMe && (
                       <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">
                         {getInitials(msg.user?.name || "User")}
                       </div>
                     )}
-                    <div className="max-w-[70%] space-y-1">
-                      {!isMe && <p className="text-[10px] text-gray-500">{msg.user?.name}</p>}
-                      <div className={cn(
-                        "p-3 rounded-2xl text-sm border",
-                        isMe
-                          ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
-                          : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"
-                      )}>
-                        <p className="break-words whitespace-pre-wrap">{msg.text}</p>
+                    <div className={cn("flex gap-2 max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row")}>
+                      <div className="space-y-1">
+                        {!isMe && <p className="text-[10px] text-gray-500">{msg.user?.name}</p>}
                         
-                        {/* Material attachment */}
-                        {msg.attachmentUrl && (
-                          <a
-                            href={msg.attachmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                              "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
-                              isMe
-                                ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
-                                : "bg-[#13131f] border-white/10 text-violet-300 hover:text-violet-200"
-                            )}
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            <span className="truncate flex-1">
-                              {msg.attachmentName || "Download shared file"}
-                            </span>
-                          </a>
-                        )}
+                        <div className={cn(
+                          "p-3 rounded-2xl text-sm border relative",
+                          isMe
+                            ? "bg-violet-600 border-violet-500/20 text-white rounded-tr-none"
+                            : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"
+                        )}>
+                          
+                          {/* Replied-To Message Header Quote Box */}
+                          {msg.replyTo && (
+                            <div className={cn(
+                              "mb-2 p-2 rounded-lg text-xs border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
+                              isMe ? "border-violet-300" : "border-violet-500"
+                            )}>
+                              <p className="font-semibold text-[10px] text-violet-300">
+                                {msg.replyTo.user?.id === myUserId ? "You" : msg.replyTo.user?.name}
+                              </p>
+                              <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
+                            </div>
+                          )}
+
+                          <p className="break-words whitespace-pre-wrap">{msg.text}</p>
+                          
+                          {/* Photo / Material attachment */}
+                          {msg.attachmentUrl && (
+                            isImageUrl(msg.attachmentUrl) ? (
+                              <div className="mt-2 rounded-xl overflow-hidden border border-white/10 max-w-full bg-black/25">
+                                <img
+                                  src={msg.attachmentUrl}
+                                  alt={msg.attachmentName || "Attached image"}
+                                  className="w-full h-auto max-h-60 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                  onClick={() => window.open(msg.attachmentUrl!, "_blank")}
+                                />
+                                {msg.attachmentName && (
+                                  <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
+                                    📸 {msg.attachmentName}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <a
+                                href={msg.attachmentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={cn(
+                                  "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
+                                  isMe
+                                    ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
+                                    : "bg-[#13131f] border-white/10 text-violet-300 hover:text-violet-200"
+                                )}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span className="truncate flex-1">
+                                  {msg.attachmentName || "Download shared file"}
+                                </span>
+                              </a>
+                            )
+                          )}
+                        </div>
+                        <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
-                      <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+
+                      {/* WhatsApp-like Reply Icon Button on message hover */}
+                      <button
+                        type="button"
+                        onClick={() => setReplyToMessage({
+                          id: msg.id,
+                          text: msg.text,
+                          senderName: isMe ? "You" : (msg.user?.name || "User")
+                        })}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center self-center h-8 w-8"
+                        title="Reply"
+                      >
+                        <CornerUpLeft className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -413,39 +535,85 @@ export function StudyGroupChat() {
                 dmMessages.map((msg) => {
                   const isMe = msg.senderId === myUserId;
                   return (
-                    <div key={msg.id} className={cn("flex gap-3", isMe ? "justify-end" : "justify-start")}>
-                      <div className="max-w-[70%] space-y-1">
-                        <div className={cn(
-                          "p-3 rounded-2xl text-sm border",
-                          isMe
-                            ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
-                            : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"
-                        )}>
-                          <p className="break-words whitespace-pre-wrap">{msg.text}</p>
-                          
-                          {/* DM material attachment */}
-                          {msg.attachmentUrl && (
-                            <a
-                              href={msg.attachmentUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={cn(
-                                "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
-                                isMe
-                                  ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
-                                  : "bg-[#13131f] border-white/10 text-blue-300 hover:text-blue-200"
-                              )}
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span className="truncate flex-1">
-                                {msg.attachmentName || "Download shared file"}
-                              </span>
-                            </a>
-                          )}
+                    <div key={msg.id} className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
+                      <div className={cn("flex gap-2 max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row")}>
+                        <div className="space-y-1">
+                          <div className={cn(
+                            "p-3 rounded-2xl text-sm border relative",
+                            isMe
+                              ? "bg-blue-600 border-blue-500/20 text-white rounded-tr-none"
+                              : "bg-white/5 border-white/10 text-gray-100 rounded-tl-none"
+                          )}>
+                            
+                            {/* DM Replied-To Message Header Quote Box */}
+                            {msg.replyTo && (
+                              <div className={cn(
+                                "mb-2 p-2 rounded-lg text-xs border-l-2 bg-black/25 text-gray-400 truncate max-w-full",
+                                isMe ? "border-blue-300" : "border-blue-500"
+                              )}>
+                                <p className="font-semibold text-[10px] text-blue-300">
+                                  {msg.replyTo.sender?.id === myUserId ? "You" : msg.replyTo.sender?.name}
+                                </p>
+                                <p className="truncate text-gray-400 mt-0.5">{msg.replyTo.text || "📎 Attachment / Photo"}</p>
+                              </div>
+                            )}
+
+                            <p className="break-words whitespace-pre-wrap">{msg.text}</p>
+                            
+                            {/* DM Photo / Material attachment */}
+                            {msg.attachmentUrl && (
+                              isImageUrl(msg.attachmentUrl) ? (
+                                <div className="mt-2 rounded-xl overflow-hidden border border-white/10 max-w-full bg-black/25">
+                                  <img
+                                    src={msg.attachmentUrl}
+                                    alt={msg.attachmentName || "Attached image"}
+                                    className="w-full h-auto max-h-60 object-contain hover:scale-[1.02] transition-transform duration-250 cursor-pointer"
+                                    onClick={() => window.open(msg.attachmentUrl!, "_blank")}
+                                  />
+                                  {msg.attachmentName && (
+                                    <p className="text-[9px] text-gray-400 px-2 py-1 bg-black/30 truncate">
+                                      📸 {msg.attachmentName}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <a
+                                  href={msg.attachmentUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={cn(
+                                    "mt-2 p-2 rounded-xl flex items-center gap-2 text-xs font-medium border transition-colors",
+                                    isMe
+                                      ? "bg-white/15 border-white/10 text-white hover:bg-white/25"
+                                      : "bg-[#13131f] border-white/10 text-blue-300 hover:text-blue-200"
+                                  )}
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span className="truncate flex-1">
+                                    {msg.attachmentName || "Download shared file"}
+                                  </span>
+                                </a>
+                              )
+                            )}
+                          </div>
+                          <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
                         </div>
-                        <p className={cn("text-[9px] text-gray-600", isMe ? "text-right" : "text-left")}>
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+
+                        {/* WhatsApp-like Reply Icon Button on DM hover */}
+                        <button
+                          type="button"
+                          onClick={() => setReplyToMessage({
+                            id: msg.id,
+                            text: msg.text,
+                            senderName: isMe ? "You" : (msg.sender.name || "User")
+                          })}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center self-center h-8 w-8"
+                          title="Reply"
+                        >
+                          <CornerUpLeft className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -455,6 +623,57 @@ export function StudyGroupChat() {
           )}
         </div>
 
+        {/* Replying-to Preview Banner directly above input bar */}
+        {replyToMessage && (
+          <div className="bg-[#13131f] px-4 py-2.5 border-t border-white/10 border-l-4 border-violet-500 bg-violet-500/5 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider">
+                Replying to {replyToMessage.senderName}
+              </p>
+              <p className="text-xs text-gray-400 truncate mt-0.5">
+                {replyToMessage.text || "📎 Attachment / Photo"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyToMessage(null)}
+              className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Selected Attachment Preview Banner directly above input bar */}
+        {shareUrl && (
+          <div className="bg-[#13131f] px-4 py-2.5 border-t border-white/10 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="flex items-center gap-3 min-w-0">
+              {isImageUrl(shareUrl) ? (
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-black/20 border border-white/10 flex-shrink-0">
+                  <img src={shareUrl} className="w-full h-full object-cover" alt="Preview" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">
+                  {isImageUrl(shareUrl) ? "📸 Photo ready to send" : "📂 File ready to send"}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate">{shareName}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setShareUrl(""); setShareName(""); }}
+              className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Input Bar / Form */}
         {(!selectedUser && activeTab === "dm") ? (
           <div className="h-20 flex items-center justify-center text-gray-500 text-xs bg-[#0d0d15] border-t border-white/10">
@@ -463,10 +682,10 @@ export function StudyGroupChat() {
         ) : (
           <form onSubmit={handleSend} className="p-4 bg-[#0d0d15] border-t border-white/10 space-y-3">
             
-            {/* Share Material Popup Panel */}
+            {/* Share External Material Link Panel */}
             {showShareForm && (
               <div className="bg-[#13131f] p-3 rounded-xl border border-white/10 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <p className="text-xs font-semibold text-white">Share Resource / Study Material</p>
+                <p className="text-xs font-semibold text-white">Share Resource / Web Link</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="url"
@@ -488,31 +707,62 @@ export function StudyGroupChat() {
               </div>
             )}
 
-            {/* Input buttons row */}
+            {/* Hidden Input File Element for local upload */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            />
+
+            {/* Input row */}
             <div className="flex items-center gap-2">
+              
+              {/* Local Photo/File Upload Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className={cn(
+                  "p-3 rounded-xl border transition-all duration-200 bg-white/5 border-white/10 text-gray-400 hover:text-white flex items-center justify-center h-11 w-11",
+                  uploading && "opacity-50 cursor-not-allowed"
+                )}
+                title="Upload Photo or File"
+              >
+                {uploading ? (
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Paperclip className="w-4 h-4" />
+                )}
+              </button>
+
+              {/* Paste URL Link Button */}
               <button
                 type="button"
                 onClick={() => setShowShareForm(!showShareForm)}
                 className={cn(
-                  "p-3 rounded-xl border transition-all duration-200",
+                  "p-3 rounded-xl border transition-all duration-200 h-11 w-11 flex items-center justify-center",
                   showShareForm 
                     ? "bg-violet-600 border-violet-500 text-white" 
                     : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                 )}
-                title="Share Study Material Link"
+                title="Paste Study Material Link"
               >
                 <Link2 className="w-4 h-4" />
               </button>
+
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={showShareForm ? "Write a message for this attachment..." : "Type a message..."}
-                className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-violet-500 transition-all"
+                placeholder={replyToMessage ? "Write a reply..." : (shareUrl ? "Add a caption/message for file..." : "Type a message...")}
+                className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-violet-500 transition-all h-11"
               />
+              
               <button
                 type="submit"
-                className="p-3 rounded-xl bg-violet-600 text-white hover:bg-violet-500 transition-all font-semibold flex items-center justify-center"
+                className="p-3 rounded-xl bg-violet-600 text-white hover:bg-violet-500 transition-all font-semibold flex items-center justify-center h-11 w-11"
               >
                 <Send className="w-4 h-4" />
               </button>

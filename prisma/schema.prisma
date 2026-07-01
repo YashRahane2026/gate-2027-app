@@ -115,6 +115,9 @@ model ChatMessage {
   attachmentName String?
   createdAt      DateTime  @default(now())
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyToId      String?
+  replyTo        ChatMessage? @relation("ChatReplies", fields: [replyToId], references: [id], onDelete: Cascade)
+  replies        ChatMessage[] @relation("ChatReplies")
 
   @@index([createdAt])
   @@index([userId])
@@ -130,6 +133,9 @@ model DirectMessage {
   createdAt      DateTime  @default(now())
   sender         User      @relation("SentDMs", fields: [senderId], references: [id], onDelete: Cascade)
   receiver       User      @relation("ReceivedDMs", fields: [receiverId], references: [id], onDelete: Cascade)
+  replyToId      String?
+  replyTo        DirectMessage? @relation("DMReplies", fields: [replyToId], references: [id], onDelete: Cascade)
+  replies        DirectMessage[] @relation("DMReplies")
 
   @@index([createdAt])
   @@index([senderId])
