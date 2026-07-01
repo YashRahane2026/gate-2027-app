@@ -35,6 +35,22 @@ export async function GET() {
       }
     }
 
+    // Fetch unread direct messages sent to the current user
+    const unreadDMs = await prisma.directMessage.findMany({
+      where: {
+        receiverId: session.user.id,
+        read: false
+      },
+      select: {
+        senderId: true
+      }
+    });
+
+    const unreadCountMap: Record<string, number> = {};
+    for (const dm of unreadDMs) {
+      unreadCountMap[dm.senderId] = (unreadCountMap[dm.senderId] || 0) + 1;
+    }
+
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -64,7 +80,8 @@ export async function GET() {
         name: isMe ? `${u.name} (You)` : u.name,
         image: u.image,
         isOnline: !!isOnline,
-        lastMessageAt: lastMessageMap[u.id] ? lastMessageMap[u.id].toISOString() : null
+        lastMessageAt: lastMessageMap[u.id] ? lastMessageMap[u.id].toISOString() : null,
+        unreadCount: unreadCountMap[u.id] || 0
       };
     });
 

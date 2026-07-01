@@ -14,6 +14,7 @@ interface User {
   image: string | null;
   isOnline?: boolean;
   lastMessageAt?: string | null;
+  unreadCount?: number;
 }
 
 interface Message {
@@ -119,7 +120,7 @@ export function StudyGroupChat() {
   const [users, setUsers] = useState<User[]>([]);
   const [groupMessages, setGroupMessages] = useState<Message[]>([]);
   const [dmMessages, setDmMessages] = useState<DMMessage[]>([]);
-  const [unreadSenders, setUnreadSenders] = useState<string[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
 
   // Message Editing & Context Menu State
@@ -161,6 +162,8 @@ export function StudyGroupChat() {
     (session.user.name && session.user.name.toLowerCase().includes("yash rahane"))
   );
 
+  const totalUnreadCount = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+
   // Close context menu on global click
   useEffect(() => {
     const handleGlobalClick = () => setContextMenu(null);
@@ -193,7 +196,17 @@ export function StudyGroupChat() {
         
         if (usersRes.ok) {
           const uData = await usersRes.json();
-          setUsers(uData.users || []);
+          const fetchedUsers = uData.users || [];
+          setUsers(fetchedUsers);
+          
+          // Populate initial database unread counts
+          const counts: Record<string, number> = {};
+          fetchedUsers.forEach((u: User) => {
+            if (u.unreadCount && u.unreadCount > 0) {
+              counts[u.id] = u.unreadCount;
+            }
+          });
+          setUnreadCounts(counts);
         }
         
         if (messagesRes.ok) {
@@ -237,7 +250,12 @@ export function StudyGroupChat() {
   // Clear unread sender badge when chat is opened
   useEffect(() => {
     if (selectedUser) {
-      setUnreadSenders((prev) => prev.filter((id) => id !== selectedUser.id));
+      setUnreadCounts((prev) => {
+        if (!prev[selectedUser.id]) return prev;
+        const next = { ...prev };
+        delete next[selectedUser.id];
+        return next;
+      });
     }
   }, [selectedUser]);
 
@@ -332,12 +350,12 @@ export function StudyGroupChat() {
           });
         });
 
-        // Push to unread senders state if not actively reading their messages
+        // Increment unread count if not actively viewing their messages
         if (newDM.senderId !== selectedUser?.id) {
-          setUnreadSenders((prev) => {
-            if (prev.includes(newDM.senderId)) return prev;
-            return [...prev, newDM.senderId];
-          });
+          setUnreadCounts((prev) => ({
+            ...prev,
+            [newDM.senderId]: (prev[newDM.senderId] || 0) + 1
+          }));
           toast({
             title: `New DM from ${newDM.sender.name}`,
             description: newDM.text || "Shared a photo/file",
@@ -663,8 +681,8 @@ export function StudyGroupChat() {
               ) : (
                 [...users]
                   .sort((a, b) => {
-                    const aUnread = unreadSenders.includes(a.id);
-                    const bUnread = unreadSenders.includes(b.id);
+                    const aUnread = (unreadCounts[a.id] || 0) > 0;
+                    const bUnread = (unreadCounts[b.id] || 0) > 0;
                     // Pinned unread chats on top
                     if (aUnread && !bUnread) return -1;
                     if (!aUnread && bUnread) return 1;
@@ -681,7 +699,7 @@ export function StudyGroupChat() {
                   })
                   .map((u) => {
                     const isOnline = u.isOnline;
-                    const hasUnread = unreadSenders.includes(u.id);
+                    const unreadCount = unreadCounts[u.id] || 0;
                     return (
                       <div key={u.id} className="relative group/member">
                         <button
@@ -708,9 +726,9 @@ export function StudyGroupChat() {
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {hasUnread ? (
-                              <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse flex-shrink-0">
-                                New
+                            {unreadCount > 0 ? (
+                              <span className="bg-blue-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md animate-pulse">
+                                {unreadCount}
                               </span>
                             ) : (
                               <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-gray-300 transition-colors flex-shrink-0" />
@@ -767,8 +785,10 @@ export function StudyGroupChat() {
         >
           <div className="relative">
             <MessageSquare className="w-4 h-4" />
-            {unreadSenders.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full border border-[#0b0b10] animate-pulse" />
+            {totalUnreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-[#0b0b10] animate-pulse">
+                {totalUnreadCount}
+              </span>
             )}
           </div>
           DM
