@@ -58,7 +58,12 @@ export async function GET() {
       if (b.todayMinutes !== a.todayMinutes) {
         return b.todayMinutes - a.todayMinutes;
       }
-      return b.totalMinutes - a.totalMinutes;
+      if (b.totalMinutes !== a.totalMinutes) {
+        return b.totalMinutes - a.totalMinutes;
+      }
+      const aVal = a.isOnline ? 1 : 0;
+      const bVal = b.isOnline ? 1 : 0;
+      return bVal - aVal;
     })
     .map((u, idx) => ({ ...u, rank: idx + 1 }));
 
