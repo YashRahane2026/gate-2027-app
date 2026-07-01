@@ -10,9 +10,6 @@ export async function GET() {
 
   try {
     const users = await prisma.user.findMany({
-      where: {
-        id: { not: session.user.id }
-      },
       select: {
         id: true,
         name: true,
@@ -34,9 +31,11 @@ export async function GET() {
         (u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000) ||
         (u.focusState?.isRunning === true);
 
+      const isMe = u.id === session.user.id;
+
       return {
         id: u.id,
-        name: u.name,
+        name: isMe ? `${u.name} (You)` : u.name,
         image: u.image,
         isOnline: !!isOnline
       };
