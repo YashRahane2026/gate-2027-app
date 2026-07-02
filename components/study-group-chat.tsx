@@ -466,6 +466,27 @@ export function StudyGroupChat() {
     }
   };
 
+  const handleRedirectToDM = async (userId: string) => {
+    let targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) {
+      try {
+        const res = await fetch("/api/chat/users");
+        if (res.ok) {
+          const uData = await res.json();
+          const fetchedUsers = uData.users || [];
+          setUsers(fetchedUsers);
+          targetUser = fetchedUsers.find((u: User) => u.id === userId);
+        }
+      } catch (err) {
+        console.error("Error refreshing users list for redirect:", err);
+      }
+    }
+    if (targetUser) {
+      setSelectedUser(targetUser);
+      setActiveTab("dm");
+    }
+  };
+
   // Handle local file upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -733,15 +754,27 @@ export function StudyGroupChat() {
                           )}
                         >
                           <div className="relative flex-shrink-0">
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
-                              {getInitials(u.name)}
-                            </div>
+                            {u.image ? (
+                              <img
+                                src={u.image}
+                                alt={u.name}
+                                className="w-7 h-7 rounded-full object-cover border border-white/10"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 text-white font-bold flex items-center justify-center text-[10px]">
+                                {getInitials(u.name)}
+                              </div>
+                            )}
                             {isOnline && (
                               <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border-2 border-[#0d0d15]" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-xs truncate">{u.name}</p>
+                            <p className="font-semibold text-xs truncate">
+                              {(u.name.toLowerCase().includes("yash rahane") || (u.email && u.email.toLowerCase() === "yash.dr2004@gmail.com")) && !u.name.includes("(Admin)")
+                                ? `${u.name} (Admin)`
+                                : u.name}
+                            </p>
                             <p className={cn("text-[9px] font-medium", isOnline ? "text-emerald-400" : "text-gray-500")}>
                               {isOnline ? "Online" : "Offline"}
                             </p>
@@ -835,7 +868,13 @@ export function StudyGroupChat() {
             )}
             <div>
               <h3 className="font-semibold text-white text-xs truncate flex items-center gap-2 font-sans">
-                {selectedUser ? `💬 Private: ${selectedUser.name}` : "📢 Global Study Group Chat"}
+                {selectedUser ? (
+                  `💬 Private: ${(selectedUser.name.toLowerCase().includes("yash rahane") || selectedUser.email === "yash.dr2004@gmail.com") && !selectedUser.name.includes("(Admin)")
+                    ? `${selectedUser.name} (Admin)`
+                    : selectedUser.name}`
+                ) : (
+                  "📢 Global Study Group Chat"
+                )}
                 {selectedUser && selectedUser.isOnline && (
                   <span className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -884,13 +923,34 @@ export function StudyGroupChat() {
                     )}
                     <div className={cn("flex gap-3 group", isMe ? "justify-end" : "justify-start")}>
                       {!isMe && (
-                        <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">
-                          {getInitials(msg.user?.name || "User")}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRedirectToDM(msg.userId)}
+                          className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1 overflow-hidden transition-transform active:scale-95"
+                          title={`Message ${msg.user?.name}`}
+                        >
+                          {msg.user?.image ? (
+                            <img src={msg.user.image} alt={msg.user.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-violet-600 text-white flex items-center justify-center">
+                              {getInitials(msg.user?.name || "User")}
+                            </div>
+                          )}
+                        </button>
                       )}
                       <div className={cn("flex gap-2 max-w-[75%]", isMe ? "flex-row-reverse" : "flex-row")}>
-                        <div className="space-y-1 min-w-0">
-                          {!isMe && <p className="text-[10px] text-gray-500">{msg.user?.name}</p>}
+                        <div className="space-y-1 min-w-0 font-sans">
+                          {!isMe && (
+                            <button
+                              type="button"
+                              onClick={() => handleRedirectToDM(msg.userId)}
+                              className="text-[10px] text-gray-500 hover:text-violet-400 font-semibold transition-colors block text-left"
+                            >
+                              {msg.user?.name && msg.user.name.toLowerCase().includes("yash rahane") && !msg.user.name.includes("(Admin)")
+                                ? `${msg.user.name} (Admin)`
+                                : msg.user?.name}
+                            </button>
+                          )}
                           
                           {(() => {
                             const hasOnlyImage = msg.attachmentUrl && isImageUrl(msg.attachmentUrl) && !msg.text;

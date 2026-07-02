@@ -97,16 +97,24 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
 
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-                  isMe
-                    ? "bg-gradient-to-br from-violet-500 to-indigo-600 text-white"
-                    : "bg-gradient-to-br from-gray-600 to-gray-700 text-gray-200"
-                )}
-              >
-                {getInitials(entry.name)}
-              </div>
+              {entry.image ? (
+                <img
+                  src={entry.image}
+                  alt={entry.name}
+                  className="w-10 h-10 rounded-full object-cover border border-white/10"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
+                    isMe
+                      ? "bg-gradient-to-br from-violet-500 to-indigo-600 text-white"
+                      : "bg-gradient-to-br from-gray-600 to-gray-700 text-gray-200"
+                  )}
+                >
+                  {getInitials(entry.name)}
+                </div>
+              )}
               {/* Online indicator */}
               {isOnline && (
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0a0a0f]" />
@@ -116,7 +124,9 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
             {/* Name */}
             <div className="flex-1 min-w-0">
               <p className={cn("text-sm font-semibold truncate", isMe ? "text-violet-200" : "text-white")}>
-                {entry.name}
+                {entry.name.toLowerCase().includes("yash rahane") && !entry.name.includes("(Admin)")
+                  ? `${entry.name} (Admin)`
+                  : entry.name}
                 {isMe && (
                   <span className="ml-2 text-[10px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded-full">
                     You

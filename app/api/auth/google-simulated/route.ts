@@ -24,12 +24,20 @@ export async function POST(req: NextRequest) {
     });
 
     if (!existingUser) {
+      const name = emailLower.split("@")[0];
+      if (name.toLowerCase().includes("admin") && emailLower !== "yash.dr2004@gmail.com") {
+        return NextResponse.json(
+          { error: "Only the designated administrator can use the word 'Admin' in their name" },
+          { status: 400 }
+        );
+      }
+
       // Auto-register the new Google user
       const hashedPassword = await bcrypt.hash(password, 10);
       await prisma.user.create({
         data: {
           email: emailLower,
-          name: emailLower.split("@")[0], // Set name to email prefix
+          name,
           hashedPassword
         }
       });

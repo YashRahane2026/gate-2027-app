@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
 
     const { name, email, password } = parsed.data;
 
+    if (name.toLowerCase().includes("admin") && email.toLowerCase() !== "yash.dr2004@gmail.com") {
+      return NextResponse.json(
+        { error: "Only the designated administrator can use the word 'Admin' in their name" },
+        { status: 400 }
+      );
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json(
