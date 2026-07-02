@@ -47,6 +47,7 @@ export function Sidebar() {
   const [newPhoto, setNewPhoto] = useState("");
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState("");
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email?: string }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +57,18 @@ export function Sidebar() {
       setNewPhoto(session.user.image || "");
     }
   }, [session, showSettings]);
+
+  useEffect(() => {
+    const isYashAdmin = session?.user?.email?.toLowerCase() === "yash.dr2004@gmail.com";
+    if (showSettings && isYashAdmin) {
+      fetch("/api/chat/users")
+        .then((res) => res.json())
+        .then((data) => {
+          setAllUsers(data.users || []);
+        })
+        .catch((err) => console.error("Error loading directories:", err));
+    }
+  }, [showSettings, session]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -324,6 +337,15 @@ export function Sidebar() {
                 accept="image/*"
                 className="hidden"
               />
+              {newPhoto && (
+                <button
+                  type="button"
+                  onClick={() => setNewPhoto("")}
+                  className="mt-2 text-[10px] font-bold text-rose-400 hover:text-rose-300 transition-colors uppercase tracking-wider font-sans"
+                >
+                  Remove Photo
+                </button>
+              )}
             </div>
 
             {settingsError && (
@@ -368,6 +390,28 @@ export function Sidebar() {
                 )}
               </button>
             </form>
+
+            {/* Admin only monitor directories view */}
+            {isYashAdmin && allUsers.length > 0 && (
+              <div className="border-t border-white/10 pt-4 mt-4 animate-in fade-in duration-200">
+                <h3 className="text-[10px] font-bold text-violet-400 uppercase tracking-wider mb-2 font-sans">
+                  Registered Emails Directory ({allUsers.length})
+                </h3>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                  {allUsers.map((u) => {
+                    const cleanName = u.name.replace(" (You)", "");
+                    return (
+                      <div key={u.id} className="flex items-center justify-between text-[9px] font-sans text-gray-300 bg-white/5 p-2 rounded-xl border border-white/5">
+                        <span className="font-semibold truncate max-w-[120px]">{cleanName}</span>
+                        <span className="text-gray-400 font-mono select-all bg-black/25 px-1.5 py-0.5 rounded border border-white/5">
+                          {u.email || "No Email"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
