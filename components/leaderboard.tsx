@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { getPusherClient, PUSHER_CHANNELS, PUSHER_EVENTS } from "@/lib/pusher";
 import { getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/lib/use-ui-store";
 
 interface LeaderboardEntry {
   id: string;
@@ -25,6 +26,7 @@ const MEDAL = ["🥇", "🥈", "🥉"];
 export function Leaderboard({ initialData }: LeaderboardProps) {
   const { data: session } = useSession();
   const [entries, setEntries] = useState<LeaderboardEntry[]>(initialData);
+  const { setRedirectToDmUserId } = useUIStore();
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const refetch = async () => {
@@ -96,17 +98,22 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
             </div>
 
             {/* Avatar */}
-            <div className="relative flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setRedirectToDmUserId(entry.id)}
+              className="relative flex-shrink-0 group active:scale-95 transition-transform"
+              title={`Message ${entry.name}`}
+            >
               {entry.image ? (
                 <img
                   src={entry.image}
                   alt={entry.name}
-                  className="w-10 h-10 rounded-full object-cover border border-white/10"
+                  className="w-10 h-10 rounded-full object-cover border border-white/10 group-hover:border-violet-500 transition-colors"
                 />
               ) : (
                 <div
                   className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
+                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-colors group-hover:bg-violet-600/30",
                     isMe
                       ? "bg-gradient-to-br from-violet-500 to-indigo-600 text-white"
                       : "bg-gradient-to-br from-gray-600 to-gray-700 text-gray-200"
@@ -119,20 +126,27 @@ export function Leaderboard({ initialData }: LeaderboardProps) {
               {isOnline && (
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0a0a0f]" />
               )}
-            </div>
+            </button>
 
             {/* Name */}
             <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-semibold truncate", isMe ? "text-violet-200" : "text-white")}>
-                {entry.name.toLowerCase().includes("yash rahane") && !entry.name.includes("(Admin)")
-                  ? `${entry.name} (Admin)`
-                  : entry.name}
-                {isMe && (
-                  <span className="ml-2 text-[10px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded-full">
-                    You
-                  </span>
-                )}
-              </p>
+              <button
+                type="button"
+                onClick={() => setRedirectToDmUserId(entry.id)}
+                className="text-left font-sans block group"
+                title={`Message ${entry.name}`}
+              >
+                <p className={cn("text-sm font-semibold truncate group-hover:text-violet-400 transition-colors", isMe ? "text-violet-200" : "text-white")}>
+                  {entry.name.toLowerCase().includes("yash rahane") && !entry.name.includes("(Admin)")
+                    ? `${entry.name} (Admin)`
+                    : entry.name}
+                  {isMe && (
+                    <span className="ml-2 text-[10px] text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded-full">
+                      You
+                    </span>
+                  )}
+                </p>
+              </button>
               <p className="text-xs text-gray-400">
                 {entry.todayMinutes > 0 ? `${hours}h ${mins}m today` : "No sessions yet"}
                 <span className="text-[10px] text-violet-400/70 block sm:inline sm:ml-2">

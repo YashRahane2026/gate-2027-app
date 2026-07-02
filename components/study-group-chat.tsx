@@ -7,6 +7,7 @@ import { getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Send, Link2, MessageSquare, Users, FileText, ChevronLeft, ArrowRight, CornerUpLeft, X, Paperclip } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useUIStore } from "@/lib/use-ui-store";
 
 interface User {
   id: string;
@@ -157,6 +158,7 @@ export function StudyGroupChat() {
   const feedContainerRef = useRef<HTMLDivElement>(null);
 
   const myUserId = session?.user?.id;
+  const { redirectToDmUserId, setRedirectToDmUserId } = useUIStore();
   const isAdmin = session?.user?.email && (
     ADMIN_EMAILS.includes(session.user.email.toLowerCase()) ||
     session.user.email.toLowerCase().includes("yashrahane") ||
@@ -486,6 +488,13 @@ export function StudyGroupChat() {
       setActiveTab("dm");
     }
   };
+
+  useEffect(() => {
+    if (redirectToDmUserId) {
+      handleRedirectToDM(redirectToDmUserId);
+      setRedirectToDmUserId(null);
+    }
+  }, [redirectToDmUserId]);
 
   // Handle local file upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
