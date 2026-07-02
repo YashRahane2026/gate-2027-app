@@ -18,6 +18,7 @@ import {
   X,
   Loader2,
   Camera,
+  Trash2,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/use-ui-store";
@@ -132,6 +133,28 @@ export function Sidebar() {
       }
     } catch {
       setSettingsError("Connection error while saving settings.");
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleRemoveUser = async (userId: string, name: string) => {
+    if (!confirm(`⚠️ WARNING: Are you sure you want to permanently delete user "${name}"?\nThis will completely delete their account and all their stats.`)) {
+      return;
+    }
+
+    setSettingsLoading(true);
+    setSettingsError("");
+    try {
+      const res = await fetch(`/api/chat/users?userId=${userId}`, { method: "DELETE" });
+      if (res.ok) {
+        setAllUsers((prev) => prev.filter((u) => u.id !== userId));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSettingsError(err.error || "Failed to delete user.");
+      }
+    } catch {
+      setSettingsError("Connection error while deleting user.");
     } finally {
       setSettingsLoading(false);
     }
@@ -297,7 +320,10 @@ export function Sidebar() {
       {/* Settings Dialog Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#13131f] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200">
+          <div className={cn(
+            "bg-[#13131f] border border-white/10 rounded-2xl p-6 w-full shadow-2xl relative animate-in zoom-in-95 duration-200",
+            isYashAdmin ? "max-w-md" : "max-w-sm"
+          )}>
             
             <button 
               type="button"
@@ -394,18 +420,31 @@ export function Sidebar() {
             {/* Admin only monitor directories view */}
             {isYashAdmin && allUsers.length > 0 && (
               <div className="border-t border-white/10 pt-4 mt-4 animate-in fade-in duration-200">
-                <h3 className="text-[10px] font-bold text-violet-400 uppercase tracking-wider mb-2 font-sans">
+                <h3 className="text-xs font-bold text-violet-400 uppercase tracking-wider mb-3 font-sans">
                   Registered Emails Directory ({allUsers.length})
                 </h3>
-                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                   {allUsers.map((u) => {
                     const cleanName = u.name.replace(" (You)", "");
                     return (
-                      <div key={u.id} className="flex items-center justify-between text-[9px] font-sans text-gray-300 bg-white/5 p-2 rounded-xl border border-white/5">
-                        <span className="font-semibold truncate max-w-[120px]">{cleanName}</span>
-                        <span className="text-gray-400 font-mono select-all bg-black/25 px-1.5 py-0.5 rounded border border-white/5">
-                          {u.email || "No Email"}
-                        </span>
+                      <div key={u.id} className="flex items-center justify-between text-[11px] font-sans text-gray-300 bg-white/5 p-2.5 rounded-xl border border-white/5 gap-2">
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold text-white truncate">{cleanName}</span>
+                          <span className="text-gray-400 font-mono select-all mt-0.5 truncate text-[10px]">
+                            {u.email || "No Email"}
+                          </span>
+                        </div>
+                        {u.email?.toLowerCase() !== "yash.dr2004@gmail.com" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveUser(u.id, cleanName)}
+                            disabled={settingsLoading}
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-colors flex-shrink-0"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
