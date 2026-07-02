@@ -48,7 +48,7 @@ export function Sidebar() {
   const [newPhoto, setNewPhoto] = useState("");
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState("");
-  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email?: string }[]>([]);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email?: string; createdAt?: string }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -433,6 +433,14 @@ export function Sidebar() {
                           <span className="text-gray-400 font-mono select-all mt-0.5 truncate text-[10px]">
                             {u.email || "No Email"}
                           </span>
+                          {u.createdAt && (
+                            <span className="text-[9px] text-gray-500 mt-1">
+                              Joined: {new Date(u.createdAt).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short"
+                              })}
+                            </span>
+                          )}
                         </div>
                         {u.email?.toLowerCase() !== "yash.dr2004@gmail.com" && (
                           <button
