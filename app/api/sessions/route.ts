@@ -48,6 +48,28 @@ export async function POST(req: NextRequest) {
     const { subject, startTime, endTime, durationMinutes } = parsed.data;
     const date = getISTDateString(new Date(startTime));
 
+    // Prevent duplicate/overlapping logging within 3 minutes of an existing session
+    const bufferMs = 3 * 60 * 1000;
+    const startWithBuffer = new Date(new Date(startTime).getTime() - bufferMs);
+    const endWithBuffer = new Date(new Date(endTime).getTime() + bufferMs);
+
+    const existingOverlap = await prisma.studySession.findFirst({
+      where: {
+        userId: session.user.id,
+        startTime: {
+          gte: startWithBuffer,
+          lte: endWithBuffer,
+        },
+      },
+    });
+
+    if (existingOverlap) {
+      return NextResponse.json(
+        { error: "A session in this time window is already logged" },
+        { status: 409 }
+      );
+    }
+
     const studySession = await prisma.studySession.create({
       data: {
         userId: session.user.id,
