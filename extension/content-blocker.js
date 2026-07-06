@@ -1,5 +1,6 @@
 (function() {
   let checkInterval = null;
+  let sanitizeInterval = null;
 
   // Add full screen loading hiding style at document_start
   const hideStyle = document.createElement("style");
@@ -24,7 +25,6 @@
   };
 
   const isGoClassesPage = () => {
-    const url = window.location.href.toLowerCase();
     const pathname = window.location.pathname.toLowerCase();
 
     // 1. Channel page check
@@ -52,6 +52,29 @@
     return false;
   };
 
+  const sanitizeVideoCards = () => {
+    const cards = document.querySelectorAll('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer');
+    
+    cards.forEach(card => {
+      if (card.dataset.gateChecked === "allowed") return;
+      
+      const channelLink = card.querySelector('a[href*="/@GOClasses"], a[href*="/@goclasses"], a[href*="GateClasses"], a[href*="gateclasses"]');
+      
+      if (channelLink) {
+        card.dataset.gateChecked = "allowed";
+        card.style.setProperty('opacity', '1', 'important');
+        card.style.setProperty('pointer-events', 'auto', 'important');
+        card.style.removeProperty('display');
+      } else {
+        const anyChannelLink = card.querySelector('ytd-channel-name a, #channel-name a, #channel-info a');
+        if (anyChannelLink) {
+          card.dataset.gateChecked = "blocked";
+          card.style.setProperty('display', 'none', 'important');
+        }
+      }
+    });
+  };
+
   const evaluateBlocking = async () => {
     const data = await getStorage(["incompleteTasksCount"]);
     const count = data.incompleteTasksCount || 0;
@@ -61,12 +84,17 @@
       return;
     }
 
+    // Add CSS body class for filtering out video recommendations
+    document.documentElement.classList.add("gate-focus-active");
+
     const pathname = window.location.pathname;
     
     // We only evaluate blocking on Home page, watch pages, or feed pages
     const shouldCheck = pathname === "/" || pathname.startsWith("/watch") || pathname.startsWith("/feed");
     if (!shouldCheck) {
       unblockPage();
+      // Keep feed filtering active on other pages (like search results)
+      document.documentElement.classList.add("gate-focus-active");
       return;
     }
 
@@ -80,9 +108,9 @@
         attempts++;
         if (isGoClassesPage()) {
           unblockPage();
+          document.documentElement.classList.add("gate-focus-active"); // Keep other suggestions blocked
           clearInterval(checkInterval);
         } else if (attempts >= 15) {
-          // If after 3 seconds it is not Go Classes, enforce the block overlay
           blockPage();
           clearInterval(checkInterval);
         }
@@ -96,7 +124,6 @@
   const blockPage = () => {
     hidePage();
     
-    // Create and append blocker overlay if not exists
     if (!document.getElementById("gate-block-overlay")) {
       const overlay = document.createElement("div");
       overlay.id = "gate-block-overlay";
@@ -111,11 +138,21 @@
       `;
       document.documentElement.appendChild(overlay);
     }
-    showPage(); // Show page back, but block overlay will cover it
+    showPage();
   };
 
   const unblockPage = () => {
     if (checkInterval) clearInterval(checkInterval);
+    document.documentElement.classList.remove("gate-focus-active");
+    
+    // Reset any blocked elements
+    document.querySelectorAll('[data-gate-checked]').forEach(el => {
+      el.removeAttribute('data-gate-checked');
+      el.style.removeProperty('display');
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('pointer-events');
+    });
+
     showPage();
     const overlay = document.getElementById("gate-block-overlay");
     if (overlay) overlay.remove();
@@ -123,6 +160,13 @@
 
   // Run initial evaluation
   evaluateBlocking();
+
+  // Run periodic card sanitizer to handle lazy-loaded elements
+  sanitizeInterval = setInterval(() => {
+    if (document.documentElement.classList.contains("gate-focus-active")) {
+      sanitizeVideoCards();
+    }
+  }, 300);
 
   // Listen to navigation events in YouTube SPA
   let lastUrl = window.location.href;
