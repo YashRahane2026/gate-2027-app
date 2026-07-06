@@ -1,6 +1,7 @@
 (function() {
   let checkInterval = null;
   let sanitizeInterval = null;
+  let navObserver = null;
 
   // Add full screen loading hiding style at document_start
   const hideStyle = document.createElement("style");
@@ -18,9 +19,27 @@
     }
   };
 
+  const isContextValid = () => {
+    if (!chrome.runtime || !chrome.runtime.id) {
+      if (checkInterval) clearInterval(checkInterval);
+      if (sanitizeInterval) clearInterval(sanitizeInterval);
+      if (navObserver) navObserver.disconnect();
+      return false;
+    }
+    return true;
+  };
+
   const getStorage = (keys) => {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(keys, resolve);
+    return new Promise((resolve, reject) => {
+      if (!isContextValid()) {
+        reject(new Error("Extension context invalidated."));
+        return;
+      }
+      try {
+        chrome.storage.local.get(keys, resolve);
+      } catch (err) {
+        reject(err);
+      }
     });
   };
 
@@ -53,6 +72,8 @@
   };
 
   const sanitizeVideoCards = () => {
+    if (!isContextValid()) return;
+
     const cards = document.querySelectorAll('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer');
     
     cards.forEach(card => {
@@ -76,52 +97,66 @@
   };
 
   const evaluateBlocking = async () => {
-    const data = await getStorage(["incompleteTasksCount"]);
-    const count = data.incompleteTasksCount || 0;
+    if (!isContextValid()) return;
 
-    if (count <= 0) {
-      unblockPage();
-      return;
-    }
+    try {
+      const data = await getStorage(["incompleteTasksCount"]);
+      const count = data.incompleteTasksCount || 0;
 
-    // Add CSS body class for filtering out video recommendations
-    document.documentElement.classList.add("gate-focus-active");
+      if (count <= 0) {
+        unblockPage();
+        return;
+      }
 
-    const pathname = window.location.pathname;
-    
-    // We only evaluate blocking on Home page, watch pages, or feed pages
-    const shouldCheck = pathname === "/" || pathname.startsWith("/watch") || pathname.startsWith("/feed");
-    if (!shouldCheck) {
-      unblockPage();
-      // Keep feed filtering active on other pages (like search results)
+      // Add CSS body class for filtering out video recommendations
       document.documentElement.classList.add("gate-focus-active");
-      return;
-    }
 
-    // If it is a watch page, wait and check if it is GO Classes
-    if (pathname.startsWith("/watch")) {
-      hidePage();
-      if (checkInterval) clearInterval(checkInterval);
+      const pathname = window.location.pathname;
       
-      let attempts = 0;
-      checkInterval = setInterval(() => {
-        attempts++;
-        if (isGoClassesPage()) {
-          unblockPage();
-          document.documentElement.classList.add("gate-focus-active"); // Keep other suggestions blocked
-          clearInterval(checkInterval);
-        } else if (attempts >= 15) {
-          blockPage();
-          clearInterval(checkInterval);
-        }
-      }, 200);
-    } else {
-      // Home or feeds are blocked immediately
-      blockPage();
+      // We only evaluate blocking on Home page, watch pages, or feed pages
+      const shouldCheck = pathname === "/" || pathname.startsWith("/watch") || pathname.startsWith("/feed");
+      if (!shouldCheck) {
+        unblockPage();
+        document.documentElement.classList.add("gate-focus-active");
+        return;
+      }
+
+      // If it is a watch page, wait and check if it is GO Classes
+      if (pathname.startsWith("/watch")) {
+        hidePage();
+        if (checkInterval) clearInterval(checkInterval);
+        
+        let attempts = 0;
+        checkInterval = setInterval(() => {
+          attempts++;
+          if (!isContextValid()) return;
+
+          if (isGoClassesPage()) {
+            unblockPage();
+            document.documentElement.classList.add("gate-focus-active");
+            clearInterval(checkInterval);
+          } else if (attempts >= 15) {
+            blockPage();
+            clearInterval(checkInterval);
+          }
+        }, 200);
+      } else {
+        // Home or feeds are blocked immediately
+        blockPage();
+      }
+    } catch (err) {
+      if (err.message && err.message.includes("Extension context invalidated")) {
+        if (checkInterval) clearInterval(checkInterval);
+        if (sanitizeInterval) clearInterval(sanitizeInterval);
+        if (navObserver) navObserver.disconnect();
+        return;
+      }
+      console.error("GATE Blocker: Error in evaluateBlocking:", err);
     }
   };
 
   const blockPage = () => {
+    if (!isContextValid()) return;
     hidePage();
     
     if (!document.getElementById("gate-block-overlay")) {
@@ -170,7 +205,8 @@
 
   // Listen to navigation events in YouTube SPA
   let lastUrl = window.location.href;
-  const navObserver = new MutationObserver(() => {
+  navObserver = new MutationObserver(() => {
+    if (!isContextValid()) return;
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       evaluateBlocking();
@@ -180,6 +216,7 @@
 
   // Listen to storage changes
   chrome.storage.onChanged.addListener((changes) => {
+    if (!isContextValid()) return;
     if (changes.incompleteTasksCount) {
       evaluateBlocking();
     }
