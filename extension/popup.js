@@ -78,6 +78,11 @@ async function loadTodos() {
     if (res.ok) {
       const data = await res.json();
       const todos = data.todos || [];
+      
+      const incompleteCount = todos.filter((t) => !t.isCompleted).length;
+      chrome.storage.local.set({ incompleteTasksCount: incompleteCount }, () => {
+        updateBlockerStatus();
+      });
 
       if (todos.length === 0) {
         container.innerHTML = '<div class="loading">No todos for today</div>';
@@ -96,12 +101,30 @@ async function loadTodos() {
         .join("");
     } else if (res.status === 401) {
       container.innerHTML = '<div class="loading">Sign in to the web app first</div>';
+      chrome.storage.local.set({ incompleteTasksCount: 0 }, () => {
+        updateBlockerStatus();
+      });
     } else {
       container.innerHTML = '<div class="loading">Could not load todos</div>';
     }
   } catch {
     container.innerHTML = '<div class="loading">Offline — check connection</div>';
   }
+}
+
+function updateBlockerStatus() {
+  const el = document.getElementById("block-status");
+  if (!el) return;
+  chrome.storage.local.get(["incompleteTasksCount"], (data) => {
+    const count = data.incompleteTasksCount || 0;
+    if (count > 0) {
+      el.textContent = `Blocked (${count} task${count > 1 ? "s" : ""} left)`;
+      el.className = "block-status blocked";
+    } else {
+      el.textContent = "Unblocked (All tasks complete!)";
+      el.className = "block-status unblocked";
+    }
+  });
 }
 
 function escapeHtml(str) {
@@ -122,3 +145,4 @@ document.getElementById("open-app").addEventListener("click", () => {
 // ──────────────────────────────────────────────
 loadFocusTime();
 loadTodos();
+updateBlockerStatus();

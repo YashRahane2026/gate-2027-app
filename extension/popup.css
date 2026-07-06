@@ -186,6 +186,23 @@ body {
   opacity: 0.85;
 }
 
+.block-status {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.block-status.blocked {
+  color: #f87171;
+}
+
+.block-status.unblocked {
+  color: #34d399;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
