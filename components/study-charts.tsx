@@ -51,12 +51,16 @@ interface StudyChartsProps {
   weeklyChart: { date: string; minutes: number; label: string }[];
   monthlyChart: { date: string; minutes: number; label: string }[];
   subjectBreakdown: { subject: string; minutes: number }[];
+  dailyBreakdown: { subject: string; minutes: number }[];
 }
 
 type Filter = "weekly" | "monthly" | "alltime";
 
-export function StudyCharts({ weeklyChart, monthlyChart, subjectBreakdown }: StudyChartsProps) {
+export function StudyCharts({ weeklyChart, monthlyChart, subjectBreakdown, dailyBreakdown }: StudyChartsProps) {
   const [filter, setFilter] = useState<Filter>("weekly");
+  const [breakdownView, setBreakdownView] = useState<"daily" | "total">("daily");
+
+  const currentBreakdown = breakdownView === "daily" ? dailyBreakdown : subjectBreakdown;
 
   const filters: { key: Filter; label: string }[] = [
     { key: "weekly", label: "Weekly" },
@@ -142,16 +146,44 @@ export function StudyCharts({ weeklyChart, monthlyChart, subjectBreakdown }: Stu
 
         {/* Pie Chart */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Subject Breakdown</h3>
-          {subjectBreakdown.length === 0 ? (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white">Subject Breakdown</h3>
+            <div className="flex bg-white/10 p-0.5 rounded-lg border border-white/10">
+              <button
+                type="button"
+                onClick={() => setBreakdownView("daily")}
+                className={cn(
+                  "px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                  breakdownView === "daily"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-gray-400 hover:text-white"
+                )}
+              >
+                Daily
+              </button>
+              <button
+                type="button"
+                onClick={() => setBreakdownView("total")}
+                className={cn(
+                  "px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                  breakdownView === "total"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-gray-400 hover:text-white"
+                )}
+              >
+                Total
+              </button>
+            </div>
+          </div>
+          {currentBreakdown.length === 0 ? (
             <div className="h-[200px] flex items-center justify-center text-gray-500 text-sm">
-              No sessions yet
+              {breakdownView === "daily" ? "No study sessions today" : "No study sessions recorded"}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
-                  data={subjectBreakdown}
+                  data={currentBreakdown}
                   cx="50%"
                   cy="50%"
                   innerRadius={55}
@@ -160,7 +192,7 @@ export function StudyCharts({ weeklyChart, monthlyChart, subjectBreakdown }: Stu
                   dataKey="minutes"
                   nameKey="subject"
                 >
-                  {subjectBreakdown.map((_, idx) => (
+                  {currentBreakdown.map((_, idx) => (
                     <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                   ))}
                 </Pie>

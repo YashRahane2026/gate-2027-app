@@ -55,6 +55,16 @@ export default function StatsPage() {
 
   if (!stats) return null;
 
+  // Calculate daily subject breakdown from today's sessions
+  const dailyBreakdownMap: Record<string, number> = {};
+  stats.today.sessions.forEach((s) => {
+    dailyBreakdownMap[s.subject] = (dailyBreakdownMap[s.subject] || 0) + s.durationMinutes;
+  });
+  const dailyBreakdown = Object.entries(dailyBreakdownMap).map(([subject, minutes]) => ({
+    subject,
+    minutes
+  }));
+
   return (
     <div className="space-y-8">
       <div>
@@ -77,6 +87,7 @@ export default function StatsPage() {
         weeklyChart={stats.weeklyChart}
         monthlyChart={stats.monthlyChart}
         subjectBreakdown={stats.subjectBreakdown}
+        dailyBreakdown={dailyBreakdown}
       />
     </div>
   );
