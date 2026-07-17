@@ -69,10 +69,10 @@ export default async function StudyGroupPage() {
   const leaderboard = await getLeaderboardData();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       
       {/* Typographic Hero Quote (Replaces title & subtitle) */}
-      <div className="w-full flex justify-center py-4">
+      <div className="w-full flex justify-center py-1">
         <MotivationTypingCard />
       </div>
 
