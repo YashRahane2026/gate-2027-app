@@ -220,7 +220,7 @@ export function MotivationTypingCard() {
           timer = setTimeout(() => {
             setDisplayedText(words[charIndex]);
             setCharIndex((prev) => prev + 1);
-            spawnSparks(22); // Particle burst
+            spawnSparks(45); // Larger particle burst on "WORK!" completion
             setShakeText(true);
             setTimeout(() => setShakeText(false), 200); // Trigger tiny text shake
           }, charIndex === 0 ? 0 : 300); // 300ms delays
@@ -285,7 +285,7 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [phase, quoteIndex, quotes]);
 
-  // Emits sparks when keyword letters are actively typed
+  // Emits sparks when keyword letters are actively typed with increased frequency and count
   useEffect(() => {
     if (quotes.length === 0) return;
     
@@ -297,19 +297,20 @@ export function MotivationTypingCard() {
                              lowerText.endsWith("work");
 
     if (completesKeyword) {
-      spawnSparks(22); // Burst on keyword completion (15-25 particles)
+      spawnSparks(45); // Massive burst on keyword completion
     } else {
       const currentQuote = quotes[quoteIndex];
       if (currentQuote && phase === "typing" && currentQuote !== "WORK! WORK! WORK!") {
-        const quoteLower = currentQuote.toLowerCase();
-        const isKeyword = quoteLower.includes("success") ||
-                          quoteLower.includes("choice") ||
-                          quoteLower.includes("discipline") ||
-                          quoteLower.includes("effort") ||
-                          quoteLower.includes("hard") ||
-                          quoteLower.includes("work");
-        if (isKeyword && displayedText.length > 0) {
-          spawnSparks(1.2);
+        const words = displayedText.split(" ");
+        const lastWord = words[words.length - 1]?.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").toLowerCase() || "";
+        
+        // Track partial characters typed inside important words
+        const isKeywordPartial = ["success", "choice", "discipline", "effort", "hard", "work"].some(
+          (kw) => kw.startsWith(lastWord) && lastWord.length > 0
+        );
+
+        if (isKeywordPartial) {
+          spawnSparks(4.5); // Rich sparks stream (4-5 particles) for every letter typed inside a keyword!
         }
       }
     }
