@@ -25,7 +25,6 @@ export function MotivationTypingCard() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">("typing");
-  const [delayUntil, setDelayUntil] = useState(0);
 
   const [isTabActive, setIsTabActive] = useState(true);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -50,7 +49,7 @@ export function MotivationTypingCard() {
     return () => mediaQuery.removeEventListener("change", listener);
   }, []);
 
-  // Fetch flat strings from secure endpoint
+  // Fetch flat strings from secure API
   useEffect(() => {
     fetch("/api/motivation/quotes")
       .then((res) => res.json())
@@ -79,27 +78,28 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive]);
 
-  // Particle Emitter System (Warm glowing embers)
+  // Particle Emitter System (Warm glowing golden sparks)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Distribute embers under the currently typed horizontal text boundaries
+    // Distribute sparks horizontally around current typed boundary
     const textLength = displayedText.length;
     const centerOffset = (Math.random() - 0.5) * Math.min(canvas.width * 0.7, textLength * 11);
 
     for (let i = 0; i < count; i++) {
       const x = canvas.width / 2 + centerOffset;
-      const y = canvas.height / 2 + 12 + (Math.random() - 0.5) * 12;
+      const y = canvas.height / 2 + 10 + (Math.random() - 0.5) * 10;
       
-      const size = 0.7 + Math.random() * 1.5;
+      const size = 0.6 + Math.random() * 1.4;
       const life = 0;
-      const maxLife = 35 + Math.random() * 15; // Embers live 600-850ms
+      const maxLife = 30 + Math.random() * 12; // Sparks live 500-700ms
       
-      const vx = (Math.random() - 0.5) * 0.9;
-      const vy = 0.8 + Math.random() * 1.2; // Float upwards
+      const vx = (Math.random() - 0.5) * 0.8;
+      const vy = 0.7 + Math.random() * 1.1; // Slow floating upwards
       
-      const colors = ["#ff4400", "#ff7700", "#ffaa00", "#fb923c", "#f97316"];
+      // Magical Golden Sparks Palette
+      const colors = ["#FFD166", "#FFC857", "#FFB703", "#FFE08A"];
       const color = colors[Math.floor(Math.random() * colors.length)];
 
       particlesRef.current.push({
@@ -116,7 +116,7 @@ export function MotivationTypingCard() {
     }
   };
 
-  // Canvas Anim Frame tick loop
+  // Canvas Anim Frame Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -149,26 +149,17 @@ export function MotivationTypingCard() {
 
         p.y -= p.vy;
         p.x += p.vx;
-        p.vx += (Math.random() - 0.5) * 0.08;
-        p.vx = Math.max(-0.8, Math.min(0.8, p.vx));
+        p.vx += (Math.random() - 0.5) * 0.06;
+        p.vx = Math.max(-0.6, Math.min(0.6, p.vx));
         
         const lifeRatio = p.life / p.maxLife;
         p.alpha = 1 - lifeRatio;
 
-        // Transition: Hot orange -> gold -> transparent yellow
-        let fillColor = p.color;
-        if (lifeRatio > 0.6) {
-          fillColor = `rgba(254, 240, 138, ${p.alpha})`;
-        } else if (lifeRatio > 0.3) {
-          fillColor = `rgba(251, 146, 60, ${p.alpha})`;
-        } else {
-          fillColor = p.color.replace(")", `, ${p.alpha})`);
-        }
-
         ctx.save();
-        ctx.fillStyle = fillColor;
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = fillColor;
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 3;
+        ctx.shadowColor = p.color;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -194,16 +185,6 @@ export function MotivationTypingCard() {
     const currentQuote = quotes[quoteIndex];
     if (!currentQuote) return;
 
-    // Check if we are currently waiting for a delay
-    const now = performance.now();
-    if (now < delayUntil) {
-      const remaining = delayUntil - now;
-      const timeout = setTimeout(() => {
-        setDelayUntil(0);
-      }, remaining);
-      return () => clearTimeout(timeout);
-    }
-
     let speed = 72; // Standard human typing cadence (65-80ms)
     let timer: NodeJS.Timeout;
 
@@ -211,11 +192,12 @@ export function MotivationTypingCard() {
       if (charIndex < currentQuote.length) {
         const nextChar = currentQuote[charIndex];
         
-        if (nextChar === ",") {
+        const isDialoguePause = nextChar === " " && currentQuote.slice(charIndex).startsWith(" Yes.");
+        
+        if (isDialoguePause) {
+          speed = 800; // Pause dialogue before typing " Yes."
+        } else if (nextChar === ",") {
           speed = 500;
-        } else if (nextChar === "?" && charIndex < currentQuote.length - 1) {
-          // Pause in the middle of dialogue sentences (before " Yes.")
-          speed = 800;
         } else if (nextChar === "." || nextChar === "!" || nextChar === "?") {
           speed = 800;
         }
@@ -230,10 +212,10 @@ export function MotivationTypingCard() {
                       currentQuote.includes("No one") ? 4000 : 2000;
         
         setPhase("waiting");
-        setDelayUntil(performance.now() + delay);
+        timer = setTimeout(() => {
+          setPhase("erasing");
+        }, delay);
       }
-    } else if (phase === "waiting") {
-      setPhase("erasing");
     } else if (phase === "erasing") {
       if (displayedText.length > 0) {
         timer = setTimeout(() => {
@@ -251,7 +233,7 @@ export function MotivationTypingCard() {
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [quoteIndex, charIndex, phase, displayedText, delayUntil, quotes, prefersReducedMotion, isTabActive]);
+  }, [quoteIndex, charIndex, phase, displayedText, quotes, prefersReducedMotion, isTabActive]);
 
   // Emits sparks when keyword letters are actively typed
   useEffect(() => {
@@ -334,7 +316,7 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[140px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[100px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
           Loading Page Heading...
         </div>
@@ -343,14 +325,9 @@ export function MotivationTypingCard() {
   }
 
   return (
-    <div className="relative w-full min-h-[140px] md:min-h-[150px] flex flex-col justify-center items-center py-1 select-none bg-transparent">
+    <div className="relative w-full min-h-[80px] md:min-h-[100px] flex flex-col justify-center items-center py-1 select-none bg-transparent">
       {/* Sparkles overlay canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
-
-      {/* Elegant Sub-Heading */}
-      <h3 className="text-xs font-bold text-violet-400/40 uppercase tracking-widest text-center font-sans mb-3.5 z-10">
-        Mindset Focus
-      </h3>
 
       {/* Quote display wrapper */}
       <div className="max-w-[1000px] w-full text-center px-6 z-10 flex items-center justify-center">
