@@ -81,7 +81,7 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive]);
 
-  // Particle Emitter System (Magical Golden / Crimson sparks)
+  // Particle Emitter System (Warm glowing golden / crimson sparks)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
     if (!canvas || quotes.length === 0) return;
@@ -100,7 +100,7 @@ export function MotivationTypingCard() {
       const x = cursorX + (Math.random() - 0.5) * 35;
       const y = canvas.height / 2 + (Math.random() - 0.5) * 6;
       
-      const size = 0.5 + Math.random() * 1.3;
+      const size = 0.6 + Math.random() * 1.4;
       const life = 0;
       const maxLife = 36 + Math.random() * 18; // Sparks live 600-900ms
       
@@ -162,19 +162,27 @@ export function MotivationTypingCard() {
           continue;
         }
 
+        // Apply velocities with a small air friction deceleration to drift smoothly
         p.y += p.vy;
         p.x += p.vx;
-        p.vx += (Math.random() - 0.5) * 0.05;
-        p.alpha = 1 - p.life / p.maxLife;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.vy -= 0.015; // Slow upward float acceleration
+
+        const lifeRatio = p.life / p.maxLife;
+        p.alpha = 1 - lifeRatio;
+
+        // Shrink particle size to simulate drifting towards the background depth
+        const currentSize = p.size * (1 - lifeRatio * 0.4);
 
         ctx.save();
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 2;
+        ctx.shadowBlur = 3;
         ctx.shadowColor = p.color;
 
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, currentSize, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -373,11 +381,11 @@ export function MotivationTypingCard() {
       <canvas 
         ref={canvasRef} 
         className="absolute pointer-events-none z-0" 
-        style={{ top: "-60px", bottom: "-60px", left: 0, right: 0 }} 
+        style={{ top: "-60px", left: 0, width: "100%", height: "calc(100% + 120px)" }} 
       />
 
-      {/* Quote display wrapper */}
-      <div className="max-w-[1000px] w-full text-center px-6 z-10 flex items-center justify-center">
+      {/* Quote display wrapper - added relative z-10 for stack context hierarchy */}
+      <div className="relative max-w-[1000px] w-full text-center px-6 z-10 flex items-center justify-center">
         <motion.div
           animate={{
             scale: phase === "waiting" ? [1, 1.01, 1] : 1,
