@@ -25,6 +25,7 @@ export function MotivationTypingCard() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">("typing");
+  const [isFading, setIsFading] = useState(false);
 
   const [isTabActive, setIsTabActive] = useState(true);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -89,17 +90,17 @@ export function MotivationTypingCard() {
 
     for (let i = 0; i < count; i++) {
       const x = canvas.width / 2 + centerOffset;
-      const y = canvas.height / 2 + 10 + (Math.random() - 0.5) * 10;
+      const y = canvas.height / 2 + 8 + (Math.random() - 0.5) * 8;
       
-      const size = 0.6 + Math.random() * 1.4;
+      const size = 0.5 + Math.random() * 1.2;
       const life = 0;
-      const maxLife = 30 + Math.random() * 12; // Sparks live 500-700ms
+      const maxLife = 30 + Math.random() * 10; // Sparks live 500-680ms
       
-      const vx = (Math.random() - 0.5) * 0.8;
-      const vy = 0.7 + Math.random() * 1.1; // Slow floating upwards
+      const vx = (Math.random() - 0.5) * 0.7;
+      const vy = 0.6 + Math.random() * 1.0; // Float upwards
       
       // Magical Golden Sparks Palette
-      const colors = ["#FFD166", "#FFC857", "#FFB703", "#FFE08A"];
+      const colors = ["#FFD166", "#FFE08A", "#FFC857", "#FFF3B0"];
       const color = colors[Math.floor(Math.random() * colors.length)];
 
       particlesRef.current.push({
@@ -207,27 +208,28 @@ export function MotivationTypingCard() {
           setCharIndex((prev) => prev + 1);
         }, speed);
       } else {
-        // Dialogue complete. Trigger custom pauses: Then success (3s), admin-only (4s), others (2s)
+        // Dialogue complete. Trigger pauses: Then success (3s), admin-only (4s), others (2s)
         const delay = currentQuote.includes("Then success") ? 3000 : 
                       currentQuote.includes("No one") ? 4000 : 2000;
         
         setPhase("waiting");
         timer = setTimeout(() => {
-          setPhase("erasing");
+          setPhase("erasing"); // We trigger erasing phase which now fades out
         }, delay);
       }
     } else if (phase === "erasing") {
-      if (displayedText.length > 0) {
-        timer = setTimeout(() => {
-          setDisplayedText((prev) => prev.slice(0, -1));
-        }, 22); // Backspace character erase speed
-      } else {
-        // Reset and advance quoteIndex
+      // Fade out the entire sentence at once
+      setIsFading(true);
+      
+      // Wait for the opacity transition to complete
+      timer = setTimeout(() => {
         const nextIndex = (quoteIndex + 1) % quotes.length;
         setQuoteIndex(nextIndex);
         setCharIndex(0);
+        setDisplayedText("");
+        setIsFading(false);
         setPhase("typing");
-      }
+      }, 350);
     }
 
     return () => {
@@ -247,7 +249,7 @@ export function MotivationTypingCard() {
                              lowerText.endsWith("work");
 
     if (completesKeyword) {
-      spawnSparks(15); // Embers burst on keyword completion
+      spawnSparks(12); // Emit 10-15 particles
     } else {
       const currentQuote = quotes[quoteIndex];
       if (currentQuote && phase === "typing") {
@@ -259,7 +261,7 @@ export function MotivationTypingCard() {
                           quoteLower.includes("hard") ||
                           quoteLower.includes("work");
         if (isKeyword && displayedText.length > 0) {
-          spawnSparks(1.4);
+          spawnSparks(1.2);
         }
       }
     }
@@ -282,10 +284,10 @@ export function MotivationTypingCard() {
             className={cn(
               "inline-block transition-all duration-700",
               isImportant
-                ? "bg-gradient-to-r from-[#A855F7] to-[#D946EF] bg-clip-text text-transparent font-extrabold"
+                ? "bg-gradient-to-r from-[#A855F7] via-[#FFD166] to-[#D946EF] bg-clip-text text-transparent font-extrabold animate-shimmer bg-[length:200%_auto]"
                 : "text-white"
             )}
-            style={isImportant ? { filter: "drop-shadow(0 0 10px rgba(217, 70, 239, 0.45))" } : undefined}
+            style={isImportant ? { filter: "drop-shadow(0 0 8px rgba(217, 70, 239, 0.4))" } : undefined}
           >
             {char}
           </motion.span>
@@ -316,7 +318,7 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[100px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[80px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
           Loading Page Heading...
         </div>
@@ -325,15 +327,21 @@ export function MotivationTypingCard() {
   }
 
   return (
-    <div className="relative w-full min-h-[80px] md:min-h-[100px] flex flex-col justify-center items-center py-1 select-none bg-transparent">
+    <div className="relative w-full min-h-[50px] md:min-h-[60px] flex flex-col justify-center items-center py-0.5 select-none bg-transparent">
       {/* Sparkles overlay canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
 
       {/* Quote display wrapper */}
       <div className="max-w-[1000px] w-full text-center px-6 z-10 flex items-center justify-center">
         <motion.div
-          animate={phase === "waiting" ? { scale: [1, 1.01, 1] } : { scale: 1 }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          animate={{
+            scale: phase === "waiting" ? [1, 1.01, 1] : 1,
+            opacity: isFading ? 0 : 1
+          }}
+          transition={{
+            scale: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+            opacity: { duration: 0.35 }
+          }}
           className="w-full"
         >
           {prefersReducedMotion ? (
@@ -344,16 +352,16 @@ export function MotivationTypingCard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.4 }}
-                className="text-white text-3xl md:text-[50px] lg:text-[58px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
+                className="text-white text-2xl md:text-[38px] lg:text-[44px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
               >
                 {renderText(quotes[reducedIndex] || "")}
               </motion.p>
             </AnimatePresence>
           ) : (
-            <p className="text-white text-3xl md:text-[50px] lg:text-[58px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
+            <p className="text-white text-2xl md:text-[38px] lg:text-[44px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
               {renderText(displayedText)}
               <span
-                className="inline-block w-[3.5px] h-[36px] md:h-[50px] ml-2 bg-[#A855F7] animate-blink"
+                className="inline-block w-[3.5px] h-[30px] md:h-[40px] ml-2 bg-[#A855F7] animate-blink"
                 style={{ verticalAlign: "middle" }}
               />
             </p>
@@ -361,7 +369,7 @@ export function MotivationTypingCard() {
         </motion.div>
       </div>
 
-      {/* Blinking stylesheet styles */}
+      {/* Styles Injector */}
       <style>{`
         @keyframes blink {
           0%, 100% { opacity: 1; }
@@ -369,6 +377,13 @@ export function MotivationTypingCard() {
         }
         .animate-blink {
           animation: blink 1.1s step-end infinite;
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .animate-shimmer {
+          animation: shimmer 4.5s linear infinite;
         }
       `}</style>
     </div>
