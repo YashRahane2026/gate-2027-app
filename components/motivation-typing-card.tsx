@@ -86,18 +86,21 @@ export function MotivationTypingCard() {
 
     // Distribute sparks horizontally around current typed boundary
     const textLength = displayedText.length;
-    const centerOffset = (Math.random() - 0.5) * Math.min(canvas.width * 0.7, textLength * 11);
+    const centerOffset = (Math.random() - 0.5) * Math.min(canvas.width * 0.7, textLength * 9);
 
     for (let i = 0; i < count; i++) {
       const x = canvas.width / 2 + centerOffset;
-      const y = canvas.height / 2 + 8 + (Math.random() - 0.5) * 8;
+      const y = canvas.height / 2 + (Math.random() - 0.5) * 8;
       
       const size = 0.5 + Math.random() * 1.2;
       const life = 0;
-      const maxLife = 30 + Math.random() * 10; // Sparks live 500-680ms
+      const maxLife = 32 + Math.random() * 10; // Sparks live ~600ms
       
-      const vx = (Math.random() - 0.5) * 0.7;
-      const vy = 0.6 + Math.random() * 1.0; // Float upwards
+      // Radial spread velocity
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.4 + Math.random() * 1.0;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - 0.4; // Drift slightly upwards
       
       // Magical Golden Sparks Palette
       const colors = ["#FFD166", "#FFE08A", "#FFC857", "#FFF3B0"];
@@ -148,18 +151,15 @@ export function MotivationTypingCard() {
           continue;
         }
 
-        p.y -= p.vy;
+        p.y += p.vy;
         p.x += p.vx;
-        p.vx += (Math.random() - 0.5) * 0.06;
-        p.vx = Math.max(-0.6, Math.min(0.6, p.vx));
-        
-        const lifeRatio = p.life / p.maxLife;
-        p.alpha = 1 - lifeRatio;
+        p.vx += (Math.random() - 0.5) * 0.05;
+        p.alpha = 1 - p.life / p.maxLife;
 
         ctx.save();
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 3;
+        ctx.shadowBlur = 2;
         ctx.shadowColor = p.color;
 
         ctx.beginPath();
@@ -192,11 +192,10 @@ export function MotivationTypingCard() {
     if (phase === "typing") {
       if (charIndex < currentQuote.length) {
         const nextChar = currentQuote[charIndex];
-        
         const isDialoguePause = nextChar === " " && currentQuote.slice(charIndex).startsWith(" Yes.");
         
         if (isDialoguePause) {
-          speed = 800; // Pause dialogue before typing " Yes."
+          speed = 800; // Dialogue pause
         } else if (nextChar === ",") {
           speed = 500;
         } else if (nextChar === "." || nextChar === "!" || nextChar === "?") {
@@ -208,20 +207,14 @@ export function MotivationTypingCard() {
           setCharIndex((prev) => prev + 1);
         }, speed);
       } else {
-        // Dialogue complete. Trigger pauses: Then success (3s), admin-only (4s), others (2s)
-        const delay = currentQuote.includes("Then success") ? 3000 : 
-                      currentQuote.includes("No one") ? 4000 : 2000;
-        
+        // Move immediately to waiting phase
         setPhase("waiting");
-        timer = setTimeout(() => {
-          setPhase("erasing"); // We trigger erasing phase which now fades out
-        }, delay);
       }
     } else if (phase === "erasing") {
       // Fade out the entire sentence at once
       setIsFading(true);
       
-      // Wait for the opacity transition to complete
+      // Wait for the opacity transition to complete (300ms)
       timer = setTimeout(() => {
         const nextIndex = (quoteIndex + 1) % quotes.length;
         setQuoteIndex(nextIndex);
@@ -229,13 +222,28 @@ export function MotivationTypingCard() {
         setDisplayedText("");
         setIsFading(false);
         setPhase("typing");
-      }, 350);
+      }, 300);
     }
 
     return () => {
       if (timer) clearTimeout(timer);
     };
   }, [quoteIndex, charIndex, phase, displayedText, quotes, prefersReducedMotion, isTabActive]);
+
+  // Separate effect to handle the "waiting" phase delay securely
+  useEffect(() => {
+    if (phase !== "waiting" || quotes.length === 0) return;
+
+    const currentQuote = quotes[quoteIndex];
+    const delay = currentQuote?.includes("Then success") ? 3000 : 
+                  currentQuote?.includes("No one") ? 4000 : 2000;
+
+    const timer = setTimeout(() => {
+      setPhase("erasing");
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [phase, quoteIndex, quotes]);
 
   // Emits sparks when keyword letters are actively typed
   useEffect(() => {
@@ -249,7 +257,7 @@ export function MotivationTypingCard() {
                              lowerText.endsWith("work");
 
     if (completesKeyword) {
-      spawnSparks(12); // Emit 10-15 particles
+      spawnSparks(12); // Emit particles spreading outward
     } else {
       const currentQuote = quotes[quoteIndex];
       if (currentQuote && phase === "typing") {
@@ -278,16 +286,15 @@ export function MotivationTypingCard() {
         return (
           <motion.span
             key={charIdx}
-            initial={{ opacity: 0, y: 3 }}
+            initial={{ opacity: 0, y: 2 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             className={cn(
               "inline-block transition-all duration-700",
               isImportant
-                ? "bg-gradient-to-r from-[#A855F7] via-[#FFD166] to-[#D946EF] bg-clip-text text-transparent font-extrabold animate-shimmer bg-[length:200%_auto]"
+                ? "text-[#FFC857] font-extrabold"
                 : "text-white"
             )}
-            style={isImportant ? { filter: "drop-shadow(0 0 8px rgba(217, 70, 239, 0.4))" } : undefined}
           >
             {char}
           </motion.span>
@@ -318,7 +325,7 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[80px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[60px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
           Loading Page Heading...
         </div>
@@ -327,7 +334,7 @@ export function MotivationTypingCard() {
   }
 
   return (
-    <div className="relative w-full min-h-[50px] md:min-h-[60px] flex flex-col justify-center items-center py-0.5 select-none bg-transparent">
+    <div className="relative w-full min-h-[40px] md:min-h-[45px] flex flex-col justify-center items-center py-0.5 select-none bg-transparent">
       {/* Sparkles overlay canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
 
@@ -340,7 +347,7 @@ export function MotivationTypingCard() {
           }}
           transition={{
             scale: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-            opacity: { duration: 0.35 }
+            opacity: { duration: 0.3 }
           }}
           className="w-full"
         >
@@ -348,20 +355,20 @@ export function MotivationTypingCard() {
             <AnimatePresence mode="wait">
               <motion.p
                 key={reducedIndex}
-                initial={{ opacity: 0, y: 4 }}
+                initial={{ opacity: 0, y: 3 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
+                exit={{ opacity: 0, y: -3 }}
                 transition={{ duration: 0.4 }}
-                className="text-white text-2xl md:text-[38px] lg:text-[44px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
+                className="text-white text-xl md:text-[32px] lg:text-[38px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
               >
                 {renderText(quotes[reducedIndex] || "")}
               </motion.p>
             </AnimatePresence>
           ) : (
-            <p className="text-white text-2xl md:text-[38px] lg:text-[44px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
+            <p className="text-white text-xl md:text-[32px] lg:text-[38px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
               {renderText(displayedText)}
               <span
-                className="inline-block w-[3.5px] h-[30px] md:h-[40px] ml-2 bg-[#A855F7] animate-blink"
+                className="inline-block w-[3px] h-[26px] md:h-[34px] ml-2 bg-[#A855F7] animate-blink"
                 style={{ verticalAlign: "middle" }}
               />
             </p>
@@ -377,13 +384,6 @@ export function MotivationTypingCard() {
         }
         .animate-blink {
           animation: blink 1.1s step-end infinite;
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        .animate-shimmer {
-          animation: shimmer 4.5s linear infinite;
         }
       `}</style>
     </div>
