@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -11,30 +11,42 @@ interface QuoteItem {
   delayAfter?: number;
 }
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
+  life: number;
+  maxLife: number;
+  color: string;
+}
+
 export function MotivationTypingCard() {
   const [quotes, setQuotes] = useState<QuoteItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Animation state machine
+
+  // Animation states
   const [displayedText, setDisplayedText] = useState("");
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">("typing");
-  const [pulseGlow, setPulseGlow] = useState(false);
   const [isTabActive, setIsTabActive] = useState(true);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [reducedIndex, setReducedIndex] = useState(0);
 
-  // Tab active listener to pause script when user is away
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const particlesRef = useRef<Particle[]>([]);
+
+  // Tab activity checking
   useEffect(() => {
-    const handleVisibility = () => {
-      setIsTabActive(!document.hidden);
-    };
+    const handleVisibility = () => setIsTabActive(!document.hidden);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
-  // Media Query for reduced motion accessibility preference
+  // Media Query for reduced motion accessibility
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReducedMotion(mediaQuery.matches);
@@ -43,7 +55,7 @@ export function MotivationTypingCard() {
     return () => mediaQuery.removeEventListener("change", listener);
   }, []);
 
-  // Fetch Quotes list from Secure Backend API
+  // Fetch quotes from Backend
   useEffect(() => {
     fetch("/api/motivation/quotes")
       .then((res) => res.json())
@@ -57,7 +69,7 @@ export function MotivationTypingCard() {
       });
   }, []);
 
-  // Utility to group quotes for prefers-reduced-motion fade animations
+  // Group quotes for prefers-reduced-motion fade animations
   const getGroupedSentences = (list: QuoteItem[]) => {
     const sentences: string[] = [];
     let current = "";
@@ -75,25 +87,115 @@ export function MotivationTypingCard() {
 
   const groupedSentences = getGroupedSentences(quotes);
 
-  // Reduced motion cycle timer
+  // Reduced motion slide timer
   useEffect(() => {
     if (!prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
 
     const currentSentence = groupedSentences[reducedIndex];
-    // Find the original segment to extract configured pauses
     const matchedSegment = quotes.find((q) => q.text === currentSentence || currentSentence.endsWith(q.text));
     const delay = matchedSegment?.delayAfter || 3000;
 
     const timer = setTimeout(() => {
       setReducedIndex((prev) => (prev + 1) % groupedSentences.length);
-      setPulseGlow(true);
-      setTimeout(() => setPulseGlow(false), 800);
     }, delay + 1000);
 
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive, groupedSentences]);
 
-  // Main typing state machine
+  // Particle Emitter System (Canvas Embers)
+  const spawnSparks = (count: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    for (let i = 0; i < count; i++) {
+      const x = canvas.width / 2 + (Math.random() - 0.5) * (canvas.width * 0.7);
+      const y = canvas.height / 2 + (Math.random() - 0.5) * 30 + 10;
+      const size = 0.8 + Math.random() * 1.5;
+      const life = 0;
+      const maxLife = 60 + Math.random() * 40;
+      
+      const vx = (Math.random() - 0.5) * 1.2;
+      const vy = 0.3 + Math.random() * 1.0;
+      
+      // Warm glowing orange/ember sparks
+      const colors = ["#ff7700", "#ffaa00", "#ff3300", "#fb923c", "#f97316"];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      particlesRef.current.push({
+        x,
+        y,
+        vx,
+        vy,
+        size,
+        alpha: 1,
+        life,
+        maxLife,
+        color
+      });
+    }
+  };
+
+  // Canvas Anim Frame loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationId: number;
+
+    const resizeCanvas = () => {
+      if (canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+      }
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const particles = particlesRef.current;
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life++;
+
+        if (p.life >= p.maxLife) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        p.y -= p.vy;
+        p.x += p.vx;
+        p.vx += (Math.random() - 0.5) * 0.08;
+        p.vx = Math.max(-1.0, Math.min(1.0, p.vx));
+        p.alpha = 1 - p.life / p.maxLife;
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = p.color;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("resize", resizeCanvas);
+    };
+  }, []);
+
+  // Main typing logic loop
   useEffect(() => {
     if (prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
 
@@ -116,8 +218,8 @@ export function MotivationTypingCard() {
         setDisplayedText(nextText);
         setCharIndex((prev) => prev + 1);
 
-        // Adjust speed for natural human cadence (natural comma / period pauses)
-        let speed = 80; // Default typing speed
+        // ChatGPT typing delays: commas (500ms), sentence ends (800ms), standard characters (65-80ms)
+        let speed = 70;
         if (nextChar === ",") {
           speed = 500;
         } else if (nextChar === "." || nextChar === "?" || nextChar === "!") {
@@ -126,7 +228,7 @@ export function MotivationTypingCard() {
 
         timer = setTimeout(() => {}, speed);
       } else {
-        // Finished typing this segment
+        // Complete segment
         const nextIndex = (quoteIndex + 1) % quotes.length;
         const nextQuote = quotes[nextIndex];
 
@@ -141,8 +243,6 @@ export function MotivationTypingCard() {
           setPhase("waiting");
           const delay = currentQuote.delayAfter || 2000;
           timer = setTimeout(() => {
-            setPulseGlow(true);
-            setTimeout(() => setPulseGlow(false), 800);
             setPhase("erasing");
           }, delay);
         }
@@ -150,9 +250,8 @@ export function MotivationTypingCard() {
     } else if (phase === "erasing") {
       if (displayedText.length > 0) {
         setDisplayedText((prev) => prev.slice(0, -1));
-        timer = setTimeout(() => {}, 25); // Faster backspacing speed
+        timer = setTimeout(() => {}, 22); // Fast backspacing transition
       } else {
-        // Erase complete, advance index
         const nextIndex = (quoteIndex + 1) % quotes.length;
         setQuoteIndex(nextIndex);
         setCharIndex(0);
@@ -163,95 +262,120 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [quoteIndex, charIndex, phase, displayedText, isTabActive, quotes, prefersReducedMotion]);
 
-  // Glow important words: success, discipline, effort, hard work, choice
-  const formatText = (text: string) => {
-    const regex = /(success|discipline|effort|hard work|choice)/gi;
-    const parts = text.split(regex);
-    return parts.map((part, idx) => {
-      if (part.toLowerCase().match(/^(success|discipline|effort|hard work|choice)$/)) {
-        return (
-          <span
-            key={idx}
-            className="text-violet-400 font-bold transition-all duration-700 drop-shadow-[0_0_12px_rgba(168,85,247,0.75)] animate-pulse"
-            style={{ textShadow: "0 0 10px rgba(168, 85, 247, 0.6)" }}
-          >
-            {part}
-          </span>
-        );
-      }
-      return <span key={idx}>{part}</span>;
+  // Spawn embers when typing keywords
+  useEffect(() => {
+    if (phase !== "typing" || quotes.length === 0) return;
+    const currentQuote = quotes[quoteIndex];
+    if (!currentQuote) return;
+
+    const lowerText = currentQuote.text.toLowerCase();
+    const isKeyword = lowerText.includes("success") ||
+                      lowerText.includes("choice") ||
+                      lowerText.includes("discipline") ||
+                      lowerText.includes("effort") ||
+                      lowerText.includes("hard") ||
+                      lowerText.includes("work");
+
+    if (isKeyword && displayedText.length > 0) {
+      spawnSparks(2);
+    }
+  }, [displayedText, phase, quoteIndex, quotes]);
+
+  // Render text helper grouping chars into unbroken words for perfect wrapping
+  const renderText = (text: string) => {
+    const words = text.split(" ");
+    return words.map((word, wordIdx) => {
+      const cleanWord = word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").toLowerCase();
+      const isImportant = ["success", "choice", "discipline", "effort", "hard", "work"].includes(cleanWord);
+      
+      return (
+        <span key={wordIdx} className="inline-block mx-[0.2em] whitespace-nowrap">
+          {word.split("").map((char, charIdx) => {
+            return (
+              <motion.span
+                key={charIdx}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+                className={cn(
+                  "inline transition-all duration-700",
+                  isImportant
+                    ? "bg-gradient-to-r from-[#A855F7] to-[#D946EF] bg-clip-text text-transparent font-extrabold"
+                    : "text-white"
+                )}
+                style={isImportant ? { textShadow: "0 0 14px rgba(217, 70, 239, 0.25)" } : undefined}
+              >
+                {char}
+              </motion.span>
+            );
+          })}
+        </span>
+      );
     });
   };
 
   if (loading) {
     return (
-      <div className="w-full h-[240px] bg-[#1D1A28]/50 border border-white/5 rounded-[20px] flex items-center justify-center animate-pulse">
-        <div className="text-gray-500 text-xs font-medium">Powering up motivation engine...</div>
+      <div className="w-full h-[240px] flex items-center justify-center bg-transparent">
+        <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
+          Mindset Focus Engine Loading...
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "relative overflow-hidden bg-[#1D1A28] border rounded-[20px] p-6 h-[240px] flex flex-col justify-between transition-all duration-1000",
-        pulseGlow
-          ? "border-violet-500/80 shadow-[0_0_30px_rgba(139,92,246,0.25)]"
-          : "border-[rgba(138,43,226,0.35)] shadow-[0_0_20px_rgba(139,92,246,0.1)]"
-      )}
-    >
-      {/* 1. Subtle Blurred Background Circles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-[20px]">
-        <div className="absolute top-1/4 left-1/3 w-36 h-36 bg-violet-600/5 rounded-full blur-[45px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-44 h-44 bg-purple-500/5 rounded-full blur-[55px] animate-pulse" />
+    <div className="relative w-full min-h-[220px] flex flex-col justify-center items-center py-6 select-none bg-transparent">
+      {/* Sparkles Canvas overlay */}
+      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
+
+      {/* Styled Heading */}
+      <h3 className="text-xs font-bold text-violet-400/50 uppercase tracking-widest text-center font-sans mb-5 z-10">
+        Mindset Focus
+      </h3>
+
+      {/* Quote Main Display Area */}
+      <div className="max-w-[700px] w-full text-center px-4 z-10 flex items-center justify-center">
+        <motion.div
+          animate={phase === "waiting" ? { scale: [1, 1.012, 1] } : { scale: 1 }}
+          transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+          className="w-full"
+        >
+          {prefersReducedMotion ? (
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={reducedIndex}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.4 }}
+                className="text-white text-2xl md:text-[44px] lg:text-[50px] font-extrabold tracking-tight font-sans leading-[1.15] text-center"
+              >
+                {renderText(groupedSentences[reducedIndex] || "")}
+              </motion.p>
+            </AnimatePresence>
+          ) : (
+            <p className="text-white text-2xl md:text-[44px] lg:text-[50px] font-extrabold tracking-tight font-sans leading-[1.15] text-center">
+              {renderText(displayedText)}
+              <span
+                className="inline-block w-[3.5px] h-[34px] md:h-[48px] ml-1.5 bg-[#A855F7] animate-blink"
+                style={{ verticalAlign: "middle" }}
+              />
+            </p>
+          )}
+        </motion.div>
       </div>
 
-      {/* 2. Top Header Block */}
-      <div className="flex items-center justify-between z-10">
-        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-sans">
-          🔥 Mindset Focus
-        </div>
-        <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-violet-400 uppercase tracking-widest font-sans bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-          </span>
-          Live
-        </div>
-      </div>
-
-      {/* 3. Middle Content Animation Area */}
-      <div className="flex-1 flex items-center justify-center py-4 z-10 select-none">
-        {prefersReducedMotion ? (
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={reducedIndex}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.5 }}
-              className="text-white text-base md:text-lg lg:text-xl font-bold tracking-tight font-sans text-center max-w-xl leading-relaxed"
-            >
-              {formatText(groupedSentences[reducedIndex] || "")}
-            </motion.p>
-          </AnimatePresence>
-        ) : (
-          <p className="text-white text-base md:text-lg lg:text-xl font-bold tracking-tight font-sans text-center max-w-xl leading-relaxed">
-            {formatText(displayedText)}
-            <span
-              className="inline-block w-[3px] h-5 ml-1 bg-violet-500 animate-pulse duration-700"
-              style={{ verticalAlign: "middle" }}
-            />
-          </p>
-        )}
-      </div>
-
-      {/* 4. Footer Block */}
-      <div className="flex justify-end z-10 select-none">
-        <div className="text-[10px] italic text-gray-500 font-medium font-sans">
-          Stay consistent every single day.
-        </div>
-      </div>
+      {/* Custom Styles Injector */}
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        .animate-blink {
+          animation: blink 1.1s step-end infinite;
+        }
+      `}</style>
     </div>
   );
 }
