@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getISTDateString } from "@/lib/config";
 import { Leaderboard } from "@/components/leaderboard";
 import { StudyGroupChat } from "@/components/study-group-chat";
+import { MotivationTypingCard } from "@/components/motivation-typing-card";
 
 async function getLeaderboardData() {
   const today = getISTDateString();
@@ -90,9 +91,10 @@ export default async function StudyGroupPage() {
           <Leaderboard initialData={leaderboard} />
         </div>
 
-        {/* Right Side: Group Chat & DM Portal */}
-        <div className="lg:col-span-7">
+        {/* Right Side: Group Chat & DM Portal + Motivation Panel */}
+        <div className="lg:col-span-7 space-y-6">
           <StudyGroupChat />
+          <MotivationTypingCard />
         </div>
 
       </div>
