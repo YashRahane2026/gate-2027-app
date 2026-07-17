@@ -79,31 +79,41 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive]);
 
-  // Particle Emitter System (Warm glowing golden sparks)
+  // Particle Emitter System (Golden / Crimson sparks)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || quotes.length === 0) return;
 
-    // Distribute sparks horizontally around current typed boundary
-    const textLength = displayedText.length;
-    const centerOffset = (Math.random() - 0.5) * Math.min(canvas.width * 0.7, textLength * 9);
+    const currentQuote = quotes[quoteIndex];
+    if (!currentQuote) return;
+
+    // Estimate cursor position horizontally to spawn sparks exactly on typed letters
+    const ratio = currentQuote.length > 0 ? (displayedText.length / currentQuote.length) : 0.5;
+    const textWidth = Math.min(canvas.width * 0.65, currentQuote.length * 9.5);
+    const cursorX = canvas.width / 2 + (ratio - 0.5) * textWidth;
+
+    const isAdminSentence = currentQuote.includes("No one");
 
     for (let i = 0; i < count; i++) {
-      const x = canvas.width / 2 + centerOffset;
+      const x = cursorX + (Math.random() - 0.5) * 32;
+      // Positioned on the baseline of text center
       const y = canvas.height / 2 + (Math.random() - 0.5) * 8;
       
-      const size = 0.5 + Math.random() * 1.2;
+      const size = 0.5 + Math.random() * 1.3;
       const life = 0;
-      const maxLife = 32 + Math.random() * 10; // Sparks live ~600ms
+      const maxLife = 32 + Math.random() * 10; // Sparks live 500-700ms
       
       // Radial spread velocity
       const angle = Math.random() * Math.PI * 2;
-      const speed = 0.4 + Math.random() * 1.0;
+      const speed = isAdminSentence ? (0.6 + Math.random() * 1.4) : (0.4 + Math.random() * 0.9);
       const vx = Math.cos(angle) * speed;
-      const vy = Math.sin(angle) * speed - 0.4; // Drift slightly upwards
+      const vy = Math.sin(angle) * speed - (isAdminSentence ? 0.6 : 0.4); // Drift slightly upwards
       
-      // Magical Golden Sparks Palette
-      const colors = ["#FFD166", "#FFE08A", "#FFC857", "#FFF3B0"];
+      // Select palette: Crimson mixed with Gold/Yellow for admin, or pure Gold palette for normal
+      let colors = ["#FFD166", "#FFC857", "#FFE08A"]; // Gold, Warm Yellow, Soft Amber
+      if (isAdminSentence) {
+        colors = ["#D62828", "#FFD166", "#FFC857", "#FFE08A", "#FF5555"]; // Red + Gold sparks mix
+      }
       const color = colors[Math.floor(Math.random() * colors.length)];
 
       particlesRef.current.push({
@@ -132,7 +142,8 @@ export function MotivationTypingCard() {
     const resizeCanvas = () => {
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = canvas.parentElement.clientHeight;
+        // Extend canvas height above and below text boundaries to prevent particle clipping
+        canvas.height = canvas.parentElement.clientHeight + 120;
       }
     };
     resizeCanvas();
@@ -277,7 +288,10 @@ export function MotivationTypingCard() {
 
   // Render text helper grouping chars into unbroken words for perfect wrapping
   const renderText = (text: string) => {
+    const currentQuote = quotes[quoteIndex];
+    const isAdminSentence = currentQuote?.includes("No one");
     const words = text.split(" ");
+
     return words.map((word, wordIdx) => {
       const cleanWord = word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").toLowerCase();
       const isImportant = ["success", "choice", "discipline", "effort", "hard", "work"].includes(cleanWord);
@@ -291,17 +305,20 @@ export function MotivationTypingCard() {
             transition={{ duration: 0.22, ease: "easeOut" }}
             className={cn(
               "inline-block transition-all duration-700",
-              isImportant
-                ? "text-[#FFC857] font-extrabold"
-                : "text-white"
+              isAdminSentence 
+                ? "text-[#D62828] font-extrabold"
+                : isImportant
+                  ? "text-[#FFC857] font-extrabold"
+                  : "text-white"
             )}
+            style={isAdminSentence ? { filter: "drop-shadow(0 0 10px rgba(214, 40, 40, 0.45))" } : undefined}
           >
             {char}
           </motion.span>
         );
       });
 
-      if (isImportant) {
+      if (isImportant || isAdminSentence) {
         return (
           <motion.span
             key={wordIdx}
@@ -325,7 +342,7 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[60px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[50px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
           Loading Page Heading...
         </div>
@@ -335,8 +352,12 @@ export function MotivationTypingCard() {
 
   return (
     <div className="relative w-full min-h-[40px] md:min-h-[45px] flex flex-col justify-center items-center py-0.5 select-none bg-transparent">
-      {/* Sparkles overlay canvas */}
-      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
+      {/* Extended height overlay canvas (top -60px offset) to prevent clipping */}
+      <canvas 
+        ref={canvasRef} 
+        className="absolute pointer-events-none z-0" 
+        style={{ top: "-60px", bottom: "-60px", left: 0, right: 0 }} 
+      />
 
       {/* Quote display wrapper */}
       <div className="max-w-[1000px] w-full text-center px-6 z-10 flex items-center justify-center">
@@ -359,13 +380,13 @@ export function MotivationTypingCard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -3 }}
                 transition={{ duration: 0.4 }}
-                className="text-white text-xl md:text-[32px] lg:text-[38px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
+                className="text-white text-xl md:text-[30px] lg:text-[36px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
               >
                 {renderText(quotes[reducedIndex] || "")}
               </motion.p>
             </AnimatePresence>
           ) : (
-            <p className="text-white text-xl md:text-[32px] lg:text-[38px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
+            <p className="text-white text-xl md:text-[30px] lg:text-[36px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
               {renderText(displayedText)}
               <span
                 className="inline-block w-[3px] h-[26px] md:h-[34px] ml-2 bg-[#A855F7] animate-blink"
