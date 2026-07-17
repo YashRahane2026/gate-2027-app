@@ -696,7 +696,7 @@ export function StudyGroupChat() {
   }
 
   return (
-    <div className="bg-[#13131f] border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row h-[550px] relative">
+    <div className="bg-[#13131f] border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row h-[600px] relative">
       
       {/* 1. LEFT SIDEBAR - Direct Message users list (hidden in Group chat to save space) */}
       {activeTab === "dm" && (

@@ -27,7 +27,7 @@ export function MotivationTypingCard() {
   const [quotes, setQuotes] = useState<QuoteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Animation states
+  // Blinking typewriter states
   const [displayedText, setDisplayedText] = useState("");
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
@@ -39,14 +39,14 @@ export function MotivationTypingCard() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
 
-  // Tab activity checking
+  // Monitor tab visibility
   useEffect(() => {
     const handleVisibility = () => setIsTabActive(!document.hidden);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
-  // Media Query for reduced motion accessibility
+  // System accessibility settings
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReducedMotion(mediaQuery.matches);
@@ -55,7 +55,7 @@ export function MotivationTypingCard() {
     return () => mediaQuery.removeEventListener("change", listener);
   }, []);
 
-  // Fetch quotes from Backend
+  // Fetch secure quote lists from backend
   useEffect(() => {
     fetch("/api/motivation/quotes")
       .then((res) => res.json())
@@ -69,7 +69,7 @@ export function MotivationTypingCard() {
       });
   }, []);
 
-  // Group quotes for prefers-reduced-motion fade animations
+  // Groups quotes for static fade overlays when prefers-reduced-motion is active
   const getGroupedSentences = (list: QuoteItem[]) => {
     const sentences: string[] = [];
     let current = "";
@@ -87,7 +87,7 @@ export function MotivationTypingCard() {
 
   const groupedSentences = getGroupedSentences(quotes);
 
-  // Reduced motion slide timer
+  // Reduced motion timer
   useEffect(() => {
     if (!prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
 
@@ -97,28 +97,33 @@ export function MotivationTypingCard() {
 
     const timer = setTimeout(() => {
       setReducedIndex((prev) => (prev + 1) % groupedSentences.length);
-    }, delay + 1000);
+    }, delay + 1200);
 
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive, groupedSentences]);
 
-  // Particle Emitter System (Canvas Embers)
+  // Particle System (Embers and sparks)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Estimate the horizontal length of current text to spawn embers under active word
+    const textLength = displayedText.length;
+    const centerOffset = (Math.random() - 0.5) * Math.min(canvas.width * 0.65, textLength * 12);
+
     for (let i = 0; i < count; i++) {
-      const x = canvas.width / 2 + (Math.random() - 0.5) * (canvas.width * 0.7);
-      const y = canvas.height / 2 + (Math.random() - 0.5) * 30 + 10;
-      const size = 0.8 + Math.random() * 1.5;
+      const x = canvas.width / 2 + centerOffset;
+      const y = canvas.height / 2 + 15 + (Math.random() - 0.5) * 15;
+      
+      const size = 0.8 + Math.random() * 1.6;
       const life = 0;
-      const maxLife = 60 + Math.random() * 40;
+      const maxLife = 35 + Math.random() * 12; // Emitter lifetime around 600-750ms
       
-      const vx = (Math.random() - 0.5) * 1.2;
-      const vy = 0.3 + Math.random() * 1.0;
+      const vx = (Math.random() - 0.5) * 1.0;
+      const vy = 0.8 + Math.random() * 1.2; // Float upward speed
       
-      // Warm glowing orange/ember sparks
-      const colors = ["#ff7700", "#ffaa00", "#ff3300", "#fb923c", "#f97316"];
+      // Warm embers: orange, gold, reddish-orange
+      const colors = ["#ff5500", "#ff8800", "#ffaa00", "#f97316", "#fb923c"];
       const color = colors[Math.floor(Math.random() * colors.length)];
 
       particlesRef.current.push({
@@ -135,7 +140,7 @@ export function MotivationTypingCard() {
     }
   };
 
-  // Canvas Anim Frame loop
+  // Canvas render animation frame loops
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -195,7 +200,7 @@ export function MotivationTypingCard() {
     };
   }, []);
 
-  // Main typing logic loop
+  // Main Typewriter State Machine Loop
   useEffect(() => {
     if (prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
 
@@ -204,21 +209,11 @@ export function MotivationTypingCard() {
     if (!currentQuote) return;
 
     if (phase === "typing") {
-      if (currentQuote.action === "type" && charIndex === 0 && displayedText !== "") {
-        setDisplayedText("");
-      }
-
       const targetText = currentQuote.text;
       if (charIndex < targetText.length) {
         const nextChar = targetText[charIndex];
-        const nextText = currentQuote.action === "append"
-          ? displayedText + nextChar
-          : targetText.slice(0, charIndex + 1);
-
-        setDisplayedText(nextText);
-        setCharIndex((prev) => prev + 1);
-
-        // ChatGPT typing delays: commas (500ms), sentence ends (800ms), standard characters (65-80ms)
+        
+        // Typing cadence speeds: standard (70ms), commas (500ms), period endings (800ms)
         let speed = 70;
         if (nextChar === ",") {
           speed = 500;
@@ -226,9 +221,19 @@ export function MotivationTypingCard() {
           speed = 800;
         }
 
-        timer = setTimeout(() => {}, speed);
+        timer = setTimeout(() => {
+          setDisplayedText((prev) => {
+            if (currentQuote.action === "append") {
+              return prev + nextChar;
+            } else {
+              return targetText.slice(0, charIndex + 1);
+            }
+          });
+          setCharIndex((prev) => prev + 1);
+          setPhase("typing");
+        }, speed);
       } else {
-        // Complete segment
+        // Complete segment typing
         const nextIndex = (quoteIndex + 1) % quotes.length;
         const nextQuote = quotes[nextIndex];
 
@@ -249,8 +254,9 @@ export function MotivationTypingCard() {
       }
     } else if (phase === "erasing") {
       if (displayedText.length > 0) {
-        setDisplayedText((prev) => prev.slice(0, -1));
-        timer = setTimeout(() => {}, 22); // Fast backspacing transition
+        timer = setTimeout(() => {
+          setDisplayedText((prev) => prev.slice(0, -1));
+        }, 22); // Character backspacing speed
       } else {
         const nextIndex = (quoteIndex + 1) % quotes.length;
         setQuoteIndex(nextIndex);
@@ -262,7 +268,7 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [quoteIndex, charIndex, phase, displayedText, isTabActive, quotes, prefersReducedMotion]);
 
-  // Spawn embers when typing keywords
+  // Emits sparks when keyword letters are actively typed
   useEffect(() => {
     if (phase !== "typing" || quotes.length === 0) return;
     const currentQuote = quotes[quoteIndex];
@@ -277,7 +283,7 @@ export function MotivationTypingCard() {
                       lowerText.includes("work");
 
     if (isKeyword && displayedText.length > 0) {
-      spawnSparks(2);
+      spawnSparks(1.8);
     }
   }, [displayedText, phase, quoteIndex, quotes]);
 
@@ -288,27 +294,43 @@ export function MotivationTypingCard() {
       const cleanWord = word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").toLowerCase();
       const isImportant = ["success", "choice", "discipline", "effort", "hard", "work"].includes(cleanWord);
       
+      const wordContent = word.split("").map((char, charIdx) => {
+        return (
+          <motion.span
+            key={charIdx}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={cn(
+              "inline-block transition-all duration-700",
+              isImportant
+                ? "bg-gradient-to-r from-[#A855F7] to-[#D946EF] bg-clip-text text-transparent font-extrabold"
+                : "text-white"
+            )}
+            style={isImportant ? { filter: "drop-shadow(0 0 10px rgba(217, 70, 239, 0.45))" } : undefined}
+          >
+            {char}
+          </motion.span>
+        );
+      });
+
+      if (isImportant) {
+        return (
+          <motion.span
+            key={wordIdx}
+            initial={{ scale: 0.96 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 12 }}
+            className="inline-block mx-[0.18em] whitespace-nowrap"
+          >
+            {wordContent}
+          </motion.span>
+        );
+      }
+
       return (
-        <span key={wordIdx} className="inline-block mx-[0.2em] whitespace-nowrap">
-          {word.split("").map((char, charIdx) => {
-            return (
-              <motion.span
-                key={charIdx}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
-                className={cn(
-                  "inline transition-all duration-700",
-                  isImportant
-                    ? "bg-gradient-to-r from-[#A855F7] to-[#D946EF] bg-clip-text text-transparent font-extrabold"
-                    : "text-white"
-                )}
-                style={isImportant ? { textShadow: "0 0 14px rgba(217, 70, 239, 0.25)" } : undefined}
-              >
-                {char}
-              </motion.span>
-            );
-          })}
+        <span key={wordIdx} className="inline-block mx-[0.18em] whitespace-nowrap">
+          {wordContent}
         </span>
       );
     });
@@ -316,29 +338,24 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[240px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[220px] md:h-[260px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
-          Mindset Focus Engine Loading...
+          Loading Page Heading...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full min-h-[220px] flex flex-col justify-center items-center py-6 select-none bg-transparent">
-      {/* Sparkles Canvas overlay */}
+    <div className="relative w-full min-h-[220px] md:min-h-[260px] flex flex-col justify-center items-center py-6 select-none bg-transparent">
+      {/* Sparkles Emitter overlay */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
 
-      {/* Styled Heading */}
-      <h3 className="text-xs font-bold text-violet-400/50 uppercase tracking-widest text-center font-sans mb-5 z-10">
-        Mindset Focus
-      </h3>
-
-      {/* Quote Main Display Area */}
-      <div className="max-w-[700px] w-full text-center px-4 z-10 flex items-center justify-center">
+      {/* Hero Quote Display Area */}
+      <div className="max-w-[850px] w-full text-center px-4 z-10 flex items-center justify-center">
         <motion.div
-          animate={phase === "waiting" ? { scale: [1, 1.012, 1] } : { scale: 1 }}
-          transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+          animate={phase === "waiting" ? { scale: [1, 1.01, 1] } : { scale: 1 }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           className="w-full"
         >
           {prefersReducedMotion ? (
@@ -349,16 +366,16 @@ export function MotivationTypingCard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.4 }}
-                className="text-white text-2xl md:text-[44px] lg:text-[50px] font-extrabold tracking-tight font-sans leading-[1.15] text-center"
+                className="text-white text-3xl md:text-[50px] lg:text-[58px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
               >
                 {renderText(groupedSentences[reducedIndex] || "")}
               </motion.p>
             </AnimatePresence>
           ) : (
-            <p className="text-white text-2xl md:text-[44px] lg:text-[50px] font-extrabold tracking-tight font-sans leading-[1.15] text-center">
+            <p className="text-white text-3xl md:text-[50px] lg:text-[58px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
               {renderText(displayedText)}
               <span
-                className="inline-block w-[3.5px] h-[34px] md:h-[48px] ml-1.5 bg-[#A855F7] animate-blink"
+                className="inline-block w-[3.5px] h-[36px] md:h-[50px] ml-2 bg-[#A855F7] animate-blink"
                 style={{ verticalAlign: "middle" }}
               />
             </p>

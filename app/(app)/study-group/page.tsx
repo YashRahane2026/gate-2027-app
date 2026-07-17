@@ -70,11 +70,10 @@ export default async function StudyGroupPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-1">Study Group</h1>
-        <p className="text-gray-400 text-sm">
-          Collaborate with your group, share study materials, and track real-time study goals! 🏆
-        </p>
+      
+      {/* Typographic Hero Quote (Replaces title & subtitle) */}
+      <div className="w-full flex justify-center py-4">
+        <MotivationTypingCard />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -91,10 +90,9 @@ export default async function StudyGroupPage() {
           <Leaderboard initialData={leaderboard} />
         </div>
 
-        {/* Right Side: Group Chat & DM Portal + Motivation Panel */}
-        <div className="lg:col-span-7 space-y-6">
+        {/* Right Side: Group Chat & DM Portal */}
+        <div className="lg:col-span-7">
           <StudyGroupChat />
-          <MotivationTypingCard />
         </div>
 
       </div>
