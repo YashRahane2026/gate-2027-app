@@ -26,6 +26,7 @@ export function MotivationTypingCard() {
   const [charIndex, setCharIndex] = useState(0);
   const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">("typing");
   const [isFading, setIsFading] = useState(false);
+  const [shakeText, setShakeText] = useState(false);
 
   const [isTabActive, setIsTabActive] = useState(true);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -69,7 +70,8 @@ export function MotivationTypingCard() {
     if (!prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
 
     const currentQuote = quotes[reducedIndex];
-    const delay = currentQuote.includes("Then success") ? 3000 : 
+    const delay = currentQuote.includes("WORK!") ? 2500 :
+                  currentQuote.includes("Then success") ? 3000 : 
                   currentQuote.includes("No one") ? 4000 : 2000;
 
     const timer = setTimeout(() => {
@@ -79,7 +81,7 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive]);
 
-  // Particle Emitter System (Golden / Crimson sparks)
+  // Particle Emitter System (Magical Golden / Crimson sparks)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
     if (!canvas || quotes.length === 0) return;
@@ -87,7 +89,7 @@ export function MotivationTypingCard() {
     const currentQuote = quotes[quoteIndex];
     if (!currentQuote) return;
 
-    // Estimate cursor position horizontally to spawn sparks exactly on typed letters
+    // Estimate cursor coordinate offsets horizontally to spawn sparks on letters
     const ratio = currentQuote.length > 0 ? (displayedText.length / currentQuote.length) : 0.5;
     const textWidth = Math.min(canvas.width * 0.65, currentQuote.length * 9.5);
     const cursorX = canvas.width / 2 + (ratio - 0.5) * textWidth;
@@ -95,22 +97,21 @@ export function MotivationTypingCard() {
     const isAdminSentence = currentQuote.includes("No one");
 
     for (let i = 0; i < count; i++) {
-      const x = cursorX + (Math.random() - 0.5) * 32;
-      // Positioned on the baseline of text center
-      const y = canvas.height / 2 + (Math.random() - 0.5) * 8;
+      const x = cursorX + (Math.random() - 0.5) * 35;
+      const y = canvas.height / 2 + (Math.random() - 0.5) * 6;
       
       const size = 0.5 + Math.random() * 1.3;
       const life = 0;
-      const maxLife = 32 + Math.random() * 10; // Sparks live 500-700ms
+      const maxLife = 36 + Math.random() * 18; // Sparks live 600-900ms
       
-      // Radial spread velocity
+      // Radial spread velocity directions
       const angle = Math.random() * Math.PI * 2;
-      const speed = isAdminSentence ? (0.6 + Math.random() * 1.4) : (0.4 + Math.random() * 0.9);
+      const speed = isAdminSentence ? (0.7 + Math.random() * 1.5) : (0.4 + Math.random() * 1.1);
       const vx = Math.cos(angle) * speed;
-      const vy = Math.sin(angle) * speed - (isAdminSentence ? 0.6 : 0.4); // Drift slightly upwards
+      const vy = Math.sin(angle) * speed - (isAdminSentence ? 0.6 : 0.4); // Drift upwards
       
-      // Select palette: Crimson mixed with Gold/Yellow for admin, or pure Gold palette for normal
-      let colors = ["#FFD166", "#FFC857", "#FFE08A"]; // Gold, Warm Yellow, Soft Amber
+      // Magical Golden Sparks Palette
+      let colors = ["#FFD166", "#FFC857", "#FFE08A"]; 
       if (isAdminSentence) {
         colors = ["#D62828", "#FFD166", "#FFC857", "#FFE08A", "#FF5555"]; // Red + Gold sparks mix
       }
@@ -142,7 +143,6 @@ export function MotivationTypingCard() {
     const resizeCanvas = () => {
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.clientWidth;
-        // Extend canvas height above and below text boundaries to prevent particle clipping
         canvas.height = canvas.parentElement.clientHeight + 120;
       }
     };
@@ -201,25 +201,41 @@ export function MotivationTypingCard() {
     let timer: NodeJS.Timeout;
 
     if (phase === "typing") {
-      if (charIndex < currentQuote.length) {
-        const nextChar = currentQuote[charIndex];
-        const isDialoguePause = nextChar === " " && currentQuote.slice(charIndex).startsWith(" Yes.");
-        
-        if (isDialoguePause) {
-          speed = 800; // Dialogue pause
-        } else if (nextChar === ",") {
-          speed = 500;
-        } else if (nextChar === "." || nextChar === "!" || nextChar === "?") {
-          speed = 800;
+      if (currentQuote === "WORK! WORK! WORK!") {
+        // Dramatic word-by-word entrance for "WORK! WORK! WORK!"
+        const words = ["WORK!", "WORK! WORK!", "WORK! WORK! WORK!"];
+        if (charIndex < words.length) {
+          timer = setTimeout(() => {
+            setDisplayedText(words[charIndex]);
+            setCharIndex((prev) => prev + 1);
+            spawnSparks(22); // Particle burst
+            setShakeText(true);
+            setTimeout(() => setShakeText(false), 200); // Trigger tiny text shake
+          }, charIndex === 0 ? 0 : 300); // 300ms delays
+        } else {
+          setPhase("waiting");
         }
-
-        timer = setTimeout(() => {
-          setDisplayedText((prev) => prev + nextChar);
-          setCharIndex((prev) => prev + 1);
-        }, speed);
       } else {
-        // Move immediately to waiting phase
-        setPhase("waiting");
+        // Standard typewriter sequence
+        if (charIndex < currentQuote.length) {
+          const nextChar = currentQuote[charIndex];
+          const isDialoguePause = nextChar === " " && currentQuote.slice(charIndex).startsWith(" Yes.");
+          
+          if (isDialoguePause) {
+            speed = 800; // Dialogue pause
+          } else if (nextChar === ",") {
+            speed = 500;
+          } else if (nextChar === "." || nextChar === "!" || nextChar === "?") {
+            speed = 800;
+          }
+
+          timer = setTimeout(() => {
+            setDisplayedText((prev) => prev + nextChar);
+            setCharIndex((prev) => prev + 1);
+          }, speed);
+        } else {
+          setPhase("waiting");
+        }
       }
     } else if (phase === "erasing") {
       // Fade out the entire sentence at once
@@ -246,7 +262,8 @@ export function MotivationTypingCard() {
     if (phase !== "waiting" || quotes.length === 0) return;
 
     const currentQuote = quotes[quoteIndex];
-    const delay = currentQuote?.includes("Then success") ? 3000 : 
+    const delay = currentQuote?.includes("WORK!") ? 2500 :
+                  currentQuote?.includes("Then success") ? 3000 : 
                   currentQuote?.includes("No one") ? 4000 : 2000;
 
     const timer = setTimeout(() => {
@@ -268,10 +285,10 @@ export function MotivationTypingCard() {
                              lowerText.endsWith("work");
 
     if (completesKeyword) {
-      spawnSparks(12); // Emit particles spreading outward
+      spawnSparks(22); // Burst on keyword completion (15-25 particles)
     } else {
       const currentQuote = quotes[quoteIndex];
-      if (currentQuote && phase === "typing") {
+      if (currentQuote && phase === "typing" && currentQuote !== "WORK! WORK! WORK!") {
         const quoteLower = currentQuote.toLowerCase();
         const isKeyword = quoteLower.includes("success") ||
                           quoteLower.includes("choice") ||
@@ -370,7 +387,7 @@ export function MotivationTypingCard() {
             scale: { duration: 6, repeat: Infinity, ease: "easeInOut" },
             opacity: { duration: 0.3 }
           }}
-          className="w-full"
+          className={cn("w-full transition-transform duration-150", shakeText && "animate-shake")}
         >
           {prefersReducedMotion ? (
             <AnimatePresence mode="wait">
@@ -405,6 +422,14 @@ export function MotivationTypingCard() {
         }
         .animate-blink {
           animation: blink 1.1s step-end infinite;
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-2.5px); }
+          75% { transform: translateX(2.5px); }
+        }
+        .animate-shake {
+          animation: shake 0.1s ease-in-out infinite;
         }
       `}</style>
     </div>

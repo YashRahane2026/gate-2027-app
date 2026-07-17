@@ -6,11 +6,13 @@ export async function GET() {
   const isAdmin = session?.user?.email === "yash.dr2004@gmail.com";
 
   const quotes = [
-    "I believe success is a choice.",
-    "Is discipline a choice? Yes.",
-    "Is effort a choice? Yes.",
-    "Is hard work a choice? Yes.",
-    "Then success is a choice."
+    "I believe Success is a Choice.",
+    "Is Discipline a Choice? Yes.",
+    "Is Effort a Choice? Yes.",
+    "Is Hard Work a Choice? Yes.",
+    "Then Success is a Choice.",
+    "BUT you have to just...",
+    "WORK! WORK! WORK!"
   ];
 
   if (isAdmin) {
