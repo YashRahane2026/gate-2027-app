@@ -89,6 +89,12 @@ export function MotivationTypingCard() {
     const currentQuote = quotes[quoteIndex];
     if (!currentQuote) return;
 
+    // Force sync canvas resolution dimensions on spawn if they are not initialized yet
+    if (canvas.width === 0 || canvas.height === 0) {
+      canvas.width = canvas.clientWidth || 1000;
+      canvas.height = canvas.clientHeight || 160;
+    }
+
     // Estimate cursor coordinate offsets horizontally to spawn sparks on letters
     const ratio = currentQuote.length > 0 ? (displayedText.length / currentQuote.length) : 0.5;
     const textWidth = Math.min(canvas.width * 0.65, currentQuote.length * 9.5);
@@ -131,7 +137,7 @@ export function MotivationTypingCard() {
     }
   };
 
-  // Canvas Anim Frame Loop (Depends on loading state to initialize after mount)
+  // Canvas Anim Frame Loop (Synchronizes dimensions dynamically at 60 FPS)
   useEffect(() => {
     if (loading) return;
 
@@ -142,16 +148,13 @@ export function MotivationTypingCard() {
 
     let animationId: number;
 
-    const resizeCanvas = () => {
-      if (canvas.parentElement) {
-        canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = canvas.parentElement.clientHeight + 120;
-      }
-    };
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
     const render = () => {
+      // Sync drawing buffer dimensions with CSS layout dimensions dynamically
+      if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const particles = particlesRef.current;
 
@@ -196,7 +199,6 @@ export function MotivationTypingCard() {
 
     return () => {
       cancelAnimationFrame(animationId);
-      window.removeEventListener("resize", resizeCanvas);
     };
   }, [loading]);
 
