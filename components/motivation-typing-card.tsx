@@ -4,13 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-interface QuoteItem {
-  text: string;
-  action: "type" | "append";
-  delayBefore?: number;
-  delayAfter?: number;
-}
-
 interface Particle {
   x: number;
   y: number;
@@ -24,11 +17,16 @@ interface Particle {
 }
 
 export function MotivationTypingCard() {
-  const [quotes, setQuotes] = useState<QuoteItem[]>([]);
+  const [quotes, setQuotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Unified displayed text state
+  // Typewriter state variables
   const [displayedText, setDisplayedText] = useState("");
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">("typing");
+  const [delayUntil, setDelayUntil] = useState(0);
+
   const [isTabActive, setIsTabActive] = useState(true);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [reducedIndex, setReducedIndex] = useState(0);
@@ -36,24 +34,14 @@ export function MotivationTypingCard() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
 
-  // State reference to manage typing state cleanly inside requestAnimationFrame
-  const stateRef = useRef({
-    quoteIndex: 0,
-    charIndex: 0,
-    phase: "typing" as "typing" | "waiting" | "erasing",
-    displayedText: "",
-    lastUpdateTime: 0,
-    delayUntil: 0
-  });
-
-  // Track tab focus to pause execution when backgrounded
+  // Monitor tab active status
   useEffect(() => {
     const handleVisibility = () => setIsTabActive(!document.hidden);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
-  // System reduced motion query
+  // System media query for reduced motion
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReducedMotion(mediaQuery.matches);
@@ -62,7 +50,7 @@ export function MotivationTypingCard() {
     return () => mediaQuery.removeEventListener("change", listener);
   }, []);
 
-  // Fetch Quotes list from Backend
+  // Fetch flat strings from secure endpoint
   useEffect(() => {
     fetch("/api/motivation/quotes")
       .then((res) => res.json())
@@ -76,59 +64,40 @@ export function MotivationTypingCard() {
       });
   }, []);
 
-  // Group quotes for static fades when accessibility is requested
-  const getGroupedSentences = (list: QuoteItem[]) => {
-    const sentences: string[] = [];
-    let current = "";
-    list.forEach((q) => {
-      if (q.action === "type") {
-        if (current) sentences.push(current);
-        current = q.text;
-      } else if (q.action === "append") {
-        current += q.text;
-      }
-    });
-    if (current) sentences.push(current);
-    return sentences;
-  };
-
-  const groupedSentences = getGroupedSentences(quotes);
-
-  // Reduced motion timer
+  // Reduced motion slide timer
   useEffect(() => {
     if (!prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
 
-    const currentSentence = groupedSentences[reducedIndex];
-    const matchedSegment = quotes.find((q) => q.text === currentSentence || currentSentence.endsWith(q.text));
-    const delay = matchedSegment?.delayAfter || 3000;
+    const currentQuote = quotes[reducedIndex];
+    const delay = currentQuote.includes("Then success") ? 3000 : 
+                  currentQuote.includes("No one") ? 4000 : 2000;
 
     const timer = setTimeout(() => {
-      setReducedIndex((prev) => (prev + 1) % groupedSentences.length);
+      setReducedIndex((prev) => (prev + 1) % quotes.length);
     }, delay + 1200);
 
     return () => clearTimeout(timer);
-  }, [reducedIndex, prefersReducedMotion, quotes, isTabActive, groupedSentences]);
+  }, [reducedIndex, prefersReducedMotion, quotes, isTabActive]);
 
-  // Particle System (Embers and sparks)
+  // Particle Emitter System (Warm glowing embers)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Center sparkles under the currently active word
+    // Distribute embers under the currently typed horizontal text boundaries
     const textLength = displayedText.length;
     const centerOffset = (Math.random() - 0.5) * Math.min(canvas.width * 0.7, textLength * 11);
 
     for (let i = 0; i < count; i++) {
       const x = canvas.width / 2 + centerOffset;
-      // Spawn slightly below text line
-      const y = canvas.height / 2 + 10 + (Math.random() - 0.5) * 12;
+      const y = canvas.height / 2 + 12 + (Math.random() - 0.5) * 12;
       
-      const size = 0.6 + Math.random() * 1.5;
+      const size = 0.7 + Math.random() * 1.5;
       const life = 0;
-      const maxLife = 36 + Math.random() * 16; // Lifetime around 600-850ms
+      const maxLife = 35 + Math.random() * 15; // Embers live 600-850ms
       
-      const vx = (Math.random() - 0.5) * 1.0;
-      const vy = 0.8 + Math.random() * 1.3; // Upward drift velocity
+      const vx = (Math.random() - 0.5) * 0.9;
+      const vy = 0.8 + Math.random() * 1.2; // Float upwards
       
       const colors = ["#ff4400", "#ff7700", "#ffaa00", "#fb923c", "#f97316"];
       const color = colors[Math.floor(Math.random() * colors.length)];
@@ -147,7 +116,7 @@ export function MotivationTypingCard() {
     }
   };
 
-  // Canvas Emitter Animation Frame Loop
+  // Canvas Anim Frame tick loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -181,24 +150,24 @@ export function MotivationTypingCard() {
         p.y -= p.vy;
         p.x += p.vx;
         p.vx += (Math.random() - 0.5) * 0.08;
-        p.vx = Math.max(-1.0, Math.min(1.0, p.vx));
+        p.vx = Math.max(-0.8, Math.min(0.8, p.vx));
         
         const lifeRatio = p.life / p.maxLife;
         p.alpha = 1 - lifeRatio;
 
-        // Transition: orange -> gold -> transparent yellow
+        // Transition: Hot orange -> gold -> transparent yellow
         let fillColor = p.color;
         if (lifeRatio > 0.6) {
-          fillColor = `rgba(254, 240, 138, ${p.alpha})`; // yellow
+          fillColor = `rgba(254, 240, 138, ${p.alpha})`;
         } else if (lifeRatio > 0.3) {
-          fillColor = `rgba(251, 146, 60, ${p.alpha})`; // gold
+          fillColor = `rgba(251, 146, 60, ${p.alpha})`;
         } else {
-          fillColor = p.color.replace(")", `, ${p.alpha})`); // original orange with alpha
+          fillColor = p.color.replace(")", `, ${p.alpha})`);
         }
 
         ctx.save();
         ctx.fillStyle = fillColor;
-        ctx.shadowBlur = 5;
+        ctx.shadowBlur = 4;
         ctx.shadowColor = fillColor;
 
         ctx.beginPath();
@@ -218,103 +187,77 @@ export function MotivationTypingCard() {
     };
   }, []);
 
-  // requestAnimationFrame-based Typewriter state machine loop
+  // Standard Deterministic React State Machine Typewriter Loop
   useEffect(() => {
-    if (prefersReducedMotion || quotes.length === 0 || !isTabActive) return;
+    if (quotes.length === 0 || prefersReducedMotion || !isTabActive) return;
 
-    let animFrameId: number;
+    const currentQuote = quotes[quoteIndex];
+    if (!currentQuote) return;
 
-    const tick = (now: number) => {
-      const state = stateRef.current;
-      const currentQuote = quotes[state.quoteIndex];
+    // Check if we are currently waiting for a delay
+    const now = performance.now();
+    if (now < delayUntil) {
+      const remaining = delayUntil - now;
+      const timeout = setTimeout(() => {
+        setDelayUntil(0);
+      }, remaining);
+      return () => clearTimeout(timeout);
+    }
 
-      if (!currentQuote) {
-        animFrameId = requestAnimationFrame(tick);
-        return;
-      }
+    let speed = 72; // Standard human typing cadence (65-80ms)
+    let timer: NodeJS.Timeout;
 
-      // Check if we are waiting for a delay (e.g. delayBefore or delayAfter)
-      if (now < state.delayUntil) {
-        animFrameId = requestAnimationFrame(tick);
-        return;
-      }
-
-      if (state.phase === "typing") {
-        const targetText = currentQuote.text;
+    if (phase === "typing") {
+      if (charIndex < currentQuote.length) {
+        const nextChar = currentQuote[charIndex];
         
-        // Typing cadence speeds: standard (72ms), commas (500ms), period endings (800ms)
-        let speed = 72;
-        const lastChar = targetText[state.charIndex - 1];
-        if (lastChar === ",") {
+        if (nextChar === ",") {
           speed = 500;
-        } else if (lastChar === "." || lastChar === "?" || lastChar === "!") {
+        } else if (nextChar === "?" && charIndex < currentQuote.length - 1) {
+          // Pause in the middle of dialogue sentences (before " Yes.")
+          speed = 800;
+        } else if (nextChar === "." || nextChar === "!" || nextChar === "?") {
           speed = 800;
         }
 
-        if (now - state.lastUpdateTime >= speed) {
-          if (state.charIndex < targetText.length) {
-            const nextChar = targetText[state.charIndex];
-            
-            if (currentQuote.action === "append") {
-              state.displayedText = state.displayedText + nextChar;
-            } else {
-              state.displayedText = targetText.slice(0, state.charIndex + 1);
-            }
-
-            state.charIndex++;
-            state.lastUpdateTime = now;
-            setDisplayedText(state.displayedText);
-          } else {
-            // Segment complete
-            const nextIndex = (state.quoteIndex + 1) % quotes.length;
-            const nextQuote = quotes[nextIndex];
-
-            if (nextQuote && nextQuote.action === "append") {
-              state.quoteIndex = nextIndex;
-              state.charIndex = 0;
-              state.delayUntil = now + (nextQuote.delayBefore || 800);
-            } else {
-              state.phase = "waiting";
-              state.delayUntil = now + (currentQuote.delayAfter || 2000);
-            }
-            state.lastUpdateTime = now;
-          }
-        }
-      } else if (state.phase === "waiting") {
-        state.phase = "erasing";
-        state.lastUpdateTime = now;
-      } else if (state.phase === "erasing") {
-        if (now - state.lastUpdateTime >= 22) { // Eraser speed
-          if (state.displayedText.length > 0) {
-            state.displayedText = state.displayedText.slice(0, -1);
-            state.lastUpdateTime = now;
-            setDisplayedText(state.displayedText);
-          } else {
-            // Reset to next quote
-            const nextIndex = (state.quoteIndex + 1) % quotes.length;
-            state.quoteIndex = nextIndex;
-            state.charIndex = 0;
-            state.phase = "typing";
-            state.lastUpdateTime = now;
-          }
-        }
+        timer = setTimeout(() => {
+          setDisplayedText((prev) => prev + nextChar);
+          setCharIndex((prev) => prev + 1);
+        }, speed);
+      } else {
+        // Dialogue complete. Trigger custom pauses: Then success (3s), admin-only (4s), others (2s)
+        const delay = currentQuote.includes("Then success") ? 3000 : 
+                      currentQuote.includes("No one") ? 4000 : 2000;
+        
+        setPhase("waiting");
+        setDelayUntil(performance.now() + delay);
       }
+    } else if (phase === "waiting") {
+      setPhase("erasing");
+    } else if (phase === "erasing") {
+      if (displayedText.length > 0) {
+        timer = setTimeout(() => {
+          setDisplayedText((prev) => prev.slice(0, -1));
+        }, 22); // Backspace character erase speed
+      } else {
+        // Reset and advance quoteIndex
+        const nextIndex = (quoteIndex + 1) % quotes.length;
+        setQuoteIndex(nextIndex);
+        setCharIndex(0);
+        setPhase("typing");
+      }
+    }
 
-      animFrameId = requestAnimationFrame(tick);
+    return () => {
+      if (timer) clearTimeout(timer);
     };
+  }, [quoteIndex, charIndex, phase, displayedText, delayUntil, quotes, prefersReducedMotion, isTabActive]);
 
-    animFrameId = requestAnimationFrame(tick);
-
-    return () => cancelAnimationFrame(animFrameId);
-  }, [quotes, prefersReducedMotion, isTabActive]);
-
-  // Spawn spark burst when keywords are completed
+  // Emits sparks when keyword letters are actively typed
   useEffect(() => {
     if (quotes.length === 0) return;
     
     const lowerText = displayedText.toLowerCase();
-    
-    // Check if the last typed sequence completes a keyword
     const completesKeyword = lowerText.endsWith("success") ||
                              lowerText.endsWith("choice") ||
                              lowerText.endsWith("discipline") ||
@@ -322,12 +265,11 @@ export function MotivationTypingCard() {
                              lowerText.endsWith("work");
 
     if (completesKeyword) {
-      spawnSparks(16); // Spawn burst of 16 particles!
+      spawnSparks(15); // Embers burst on keyword completion
     } else {
-      // Otherwise spawn a subtle continuous trail if typing a keyword segment
-      const currentQuote = quotes[stateRef.current.quoteIndex];
-      if (currentQuote && stateRef.current.phase === "typing") {
-        const quoteLower = currentQuote.text.toLowerCase();
+      const currentQuote = quotes[quoteIndex];
+      if (currentQuote && phase === "typing") {
+        const quoteLower = currentQuote.toLowerCase();
         const isKeyword = quoteLower.includes("success") ||
                           quoteLower.includes("choice") ||
                           quoteLower.includes("discipline") ||
@@ -335,11 +277,11 @@ export function MotivationTypingCard() {
                           quoteLower.includes("hard") ||
                           quoteLower.includes("work");
         if (isKeyword && displayedText.length > 0) {
-          spawnSparks(1.8);
+          spawnSparks(1.4);
         }
       }
     }
-  }, [displayedText, quotes]);
+  }, [displayedText, quoteIndex, phase, quotes]);
 
   // Render text helper grouping chars into unbroken words for perfect wrapping
   const renderText = (text: string) => {
@@ -352,9 +294,9 @@ export function MotivationTypingCard() {
         return (
           <motion.span
             key={charIdx}
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
             className={cn(
               "inline-block transition-all duration-700",
               isImportant
@@ -392,7 +334,7 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[150px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[140px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
           Loading Page Heading...
         </div>
@@ -401,19 +343,19 @@ export function MotivationTypingCard() {
   }
 
   return (
-    <div className="relative w-full min-h-[140px] md:min-h-[160px] flex flex-col justify-center items-center py-2 select-none bg-transparent">
-      {/* Sparkles Emitter overlay */}
+    <div className="relative w-full min-h-[140px] md:min-h-[150px] flex flex-col justify-center items-center py-1 select-none bg-transparent">
+      {/* Sparkles overlay canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full z-0" />
 
-      {/* Styled Heading category */}
-      <h3 className="text-xs font-bold text-violet-400/40 uppercase tracking-widest text-center font-sans mb-3 z-10">
+      {/* Elegant Sub-Heading */}
+      <h3 className="text-xs font-bold text-violet-400/40 uppercase tracking-widest text-center font-sans mb-3.5 z-10">
         Mindset Focus
       </h3>
 
-      {/* Hero Quote Display Area */}
+      {/* Quote display wrapper */}
       <div className="max-w-[1000px] w-full text-center px-6 z-10 flex items-center justify-center">
         <motion.div
-          animate={stateRef.current.phase === "waiting" ? { scale: [1, 1.01, 1] } : { scale: 1 }}
+          animate={phase === "waiting" ? { scale: [1, 1.01, 1] } : { scale: 1 }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           className="w-full"
         >
@@ -427,7 +369,7 @@ export function MotivationTypingCard() {
                 transition={{ duration: 0.4 }}
                 className="text-white text-3xl md:text-[50px] lg:text-[58px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
               >
-                {renderText(groupedSentences[reducedIndex] || "")}
+                {renderText(quotes[reducedIndex] || "")}
               </motion.p>
             </AnimatePresence>
           ) : (
@@ -442,7 +384,7 @@ export function MotivationTypingCard() {
         </motion.div>
       </div>
 
-      {/* Custom Styles Injector */}
+      {/* Blinking stylesheet styles */}
       <style>{`
         @keyframes blink {
           0%, 100% { opacity: 1; }

@@ -6,18 +6,15 @@ export async function GET() {
   const isAdmin = session?.user?.email === "yash.dr2004@gmail.com";
 
   const quotes = [
-    { text: "I believe success is a choice.", action: "type" },
-    { text: "Is discipline a choice?", action: "type" },
-    { text: " Yes.", action: "append", delayBefore: 800 },
-    { text: "Is effort a choice?", action: "type" },
-    { text: " Yes.", action: "append", delayBefore: 800 },
-    { text: "Is hard work a choice?", action: "type" },
-    { text: " Yes.", action: "append", delayBefore: 800 },
-    { text: "Then success is a choice.", action: "type", delayAfter: 3000 }
+    "I believe success is a choice.",
+    "Is discipline a choice? Yes.",
+    "Is effort a choice? Yes.",
+    "Is hard work a choice? Yes.",
+    "Then success is a choice."
   ];
 
   if (isAdmin) {
-    quotes.push({ text: "No one can fucking stop you.", action: "type", delayAfter: 4000 });
+    quotes.push("No one can fucking stop you.");
   }
 
   return NextResponse.json({ quotes });
