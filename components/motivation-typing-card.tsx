@@ -81,7 +81,7 @@ export function MotivationTypingCard() {
     return () => clearTimeout(timer);
   }, [reducedIndex, prefersReducedMotion, quotes, isTabActive]);
 
-  // Particle Emitter System (Warm glowing golden / crimson sparks)
+  // Particle Emitter System (Warm glowing red/orange fire embers)
   const spawnSparks = (count: number) => {
     const canvas = canvasRef.current;
     if (!canvas || quotes.length === 0) return;
@@ -100,7 +100,7 @@ export function MotivationTypingCard() {
       const x = cursorX + (Math.random() - 0.5) * 35;
       const y = canvas.height / 2 + (Math.random() - 0.5) * 6;
       
-      const size = 0.6 + Math.random() * 1.4;
+      const size = 0.6 + Math.random() * 1.5;
       const life = 0;
       const maxLife = 36 + Math.random() * 18; // Sparks live 600-900ms
       
@@ -110,10 +110,10 @@ export function MotivationTypingCard() {
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed - (isAdminSentence ? 0.6 : 0.4); // Drift upwards
       
-      // Magical Golden Sparks Palette
-      let colors = ["#FFD166", "#FFC857", "#FFE08A"]; 
+      // Fire Embers Palette (Red, Orange, Gold/Yellow)
+      let colors = ["#FF3300", "#FF6600", "#FF9900", "#FFCC00", "#D62828"]; 
       if (isAdminSentence) {
-        colors = ["#D62828", "#FFD166", "#FFC857", "#FFE08A", "#FF5555"]; // Red + Gold sparks mix
+        colors = ["#D62828", "#FF0000", "#FF3300", "#FFCC00", "#FFE08A", "#FF5555"]; // Red + Gold sparks mix
       }
       const color = colors[Math.floor(Math.random() * colors.length)];
 
@@ -131,8 +131,10 @@ export function MotivationTypingCard() {
     }
   };
 
-  // Canvas Anim Frame Loop
+  // Canvas Anim Frame Loop (Depends on loading state to initialize after mount)
   useEffect(() => {
+    if (loading) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -196,7 +198,7 @@ export function MotivationTypingCard() {
       cancelAnimationFrame(animationId);
       window.removeEventListener("resize", resizeCanvas);
     };
-  }, []);
+  }, [loading]);
 
   // Standard Deterministic React State Machine Typewriter Loop
   useEffect(() => {
@@ -367,7 +369,7 @@ export function MotivationTypingCard() {
 
   if (loading) {
     return (
-      <div className="w-full h-[50px] flex items-center justify-center bg-transparent">
+      <div className="w-full h-[40px] flex items-center justify-center bg-transparent">
         <div className="text-gray-600 text-xs font-semibold tracking-wider uppercase animate-pulse">
           Loading Page Heading...
         </div>
@@ -376,7 +378,7 @@ export function MotivationTypingCard() {
   }
 
   return (
-    <div className="relative w-full min-h-[40px] md:min-h-[45px] flex flex-col justify-center items-center py-0.5 select-none bg-transparent">
+    <div className="relative w-full min-h-[30px] md:min-h-[35px] flex flex-col justify-center items-center py-0.5 select-none bg-transparent">
       {/* Extended height overlay canvas (top -60px offset) to prevent clipping */}
       <canvas 
         ref={canvasRef} 
@@ -405,16 +407,16 @@ export function MotivationTypingCard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -3 }}
                 transition={{ duration: 0.4 }}
-                className="text-white text-xl md:text-[30px] lg:text-[36px] font-extrabold tracking-tight font-sans leading-[1.12] text-center"
+                className="text-white text-xl md:text-[26px] lg:text-[32px] font-extrabold tracking-tight font-sans leading-[1.1] text-center"
               >
                 {renderText(quotes[reducedIndex] || "")}
               </motion.p>
             </AnimatePresence>
           ) : (
-            <p className="text-white text-xl md:text-[30px] lg:text-[36px] font-extrabold tracking-tight font-sans leading-[1.12] text-center">
+            <p className="text-white text-xl md:text-[26px] lg:text-[32px] font-extrabold tracking-tight font-sans leading-[1.1] text-center">
               {renderText(displayedText)}
               <span
-                className="inline-block w-[3px] h-[26px] md:h-[34px] ml-2 bg-[#A855F7] animate-blink"
+                className="inline-block w-[3px] h-[26px] md:h-[30px] ml-2 bg-[#A855F7] animate-blink"
                 style={{ verticalAlign: "middle" }}
               />
             </p>
