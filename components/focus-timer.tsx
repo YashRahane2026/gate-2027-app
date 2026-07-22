@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Play, Pause, Square, Timer } from "lucide-react";
-import { formatDuration, cn } from "@/lib/utils";
+import { formatDuration, formatMinutes, cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { Todo } from "@/types/todo";
 import { useFocusStore } from "@/lib/use-focus-store";
@@ -11,9 +11,10 @@ interface FocusTimerProps {
   todos: Todo[];
   onSessionComplete: () => void;
   todayMinutes: number;
+  avgDailyMinutes?: number;
 }
 
-export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTimerProps) {
+export function FocusTimer({ todos, onSessionComplete, todayMinutes, avgDailyMinutes }: FocusTimerProps) {
   const {
     isRunning,
     isPaused,
@@ -227,12 +228,22 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes }: FocusTime
           )}
         </div>
 
-        {/* Today total */}
-        <div className="bg-white/5 rounded-xl p-4 text-center border border-white/5">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Today&apos;s Total</p>
-          <p className="text-2xl font-bold text-white">
-            {Math.floor(todayMinutes / 60)}h {todayMinutes % 60}m
-          </p>
+        {/* Today total & Daily Average */}
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex items-center justify-between">
+          <div className="text-left">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Today&apos;s Total</p>
+            <p className="text-2xl font-bold text-white">
+              {Math.floor(todayMinutes / 60)}h {todayMinutes % 60}m
+            </p>
+          </div>
+          {avgDailyMinutes !== undefined && avgDailyMinutes > 0 && (
+            <div className="text-right border-l border-white/10 pl-4">
+              <p className="text-xs text-violet-400 uppercase tracking-wider mb-1">Daily Average</p>
+              <p className="text-lg font-bold text-violet-200">
+                {formatMinutes(avgDailyMinutes)}/day
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

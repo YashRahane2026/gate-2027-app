@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getISTDateString } from "@/lib/config";
+import { formatMinutes } from "@/lib/utils";
 
 export async function GET() {
   const session = await auth();
@@ -63,7 +64,6 @@ export async function GET() {
     .reverse();
 
   let currentStreak = 0;
-  let longestStreak = 0;
   let tempStreak = 0;
   let prevDate: string | null = null;
 
@@ -91,7 +91,6 @@ export async function GET() {
       }
     }
     prevDate = d;
-    longestStreak = Math.max(longestStreak, tempStreak);
   }
 
   // Recalculate longest streak properly
@@ -148,16 +147,58 @@ export async function GET() {
     };
   });
 
+  // Calculate Average Hours / Day metrics based on past data
+  const activeDaysList = Object.keys(byDate).filter((d) => byDate[d].totalMinutes > 0);
+  const activeDaysCount = activeDaysList.length;
+  const totalMinutesAll = allSessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+  const earliestDate = activeDaysList.sort()[0] || today;
+  const firstDateObj = new Date(earliestDate + "T00:00:00Z");
+  const todayDateObj = new Date(today + "T00:00:00Z");
+  const daysSpan = Math.max(1, Math.floor((todayDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+  const avgMinutesActiveDays = activeDaysCount > 0 ? Math.round(totalMinutesAll / activeDaysCount) : 0;
+  const avgMinutesOverallSpan = Math.round(totalMinutesAll / daysSpan);
+  const avgMinutesLast7Days = Math.round(weekMinutes / 7);
+
+  // Last 30 days total
+  const thirtyDaysAgoObj = new Date(todayDateObj.getTime() - 29 * 24 * 60 * 60 * 1000);
+  let last30DaysTotalMinutes = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(thirtyDaysAgoObj.getTime() + i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toISOString().slice(0, 10);
+    last30DaysTotalMinutes += byDate[dateStr]?.totalMinutes ?? 0;
+  }
+  const avgMinutesLast30Days = Math.round(last30DaysTotalMinutes / 30);
+
+  const averagePerDay = {
+    activeDaysMinutes: avgMinutesActiveDays,
+    activeDaysCount,
+    overallSpanMinutes: avgMinutesOverallSpan,
+    daysSpan,
+    last7DaysMinutes: avgMinutesLast7Days,
+    last30DaysMinutes: avgMinutesLast30Days,
+    formattedActive: formatMinutes(avgMinutesActiveDays),
+    formattedOverall: formatMinutes(avgMinutesOverallSpan),
+    formatted7d: formatMinutes(avgMinutesLast7Days),
+    formatted30d: formatMinutes(avgMinutesLast30Days),
+    hoursActiveDays: parseFloat((avgMinutesActiveDays / 60).toFixed(1)),
+    hoursOverallSpan: parseFloat((avgMinutesOverallSpan / 60).toFixed(1)),
+    hoursLast7Days: parseFloat((avgMinutesLast7Days / 60).toFixed(1)),
+    hoursLast30Days: parseFloat((avgMinutesLast30Days / 60).toFixed(1)),
+  };
+
   return NextResponse.json({
     today: { totalMinutes: todayData.totalMinutes, sessions: todayData.sessions },
     weekMinutes,
     monthMinutes,
-    totalMinutes: allSessions.reduce((sum, s) => sum + s.durationMinutes, 0),
+    totalMinutes: totalMinutesAll,
     currentStreak,
     longestStreak: maxStreak,
     heatmap: byDate,
     subjectBreakdown,
     weeklyChart,
     monthlyChart,
+    averagePerDay,
   });
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { Clock, TrendingUp, Calendar, Flame, Trophy, Award } from "lucide-react";
+import { Clock, TrendingUp, Calendar, Flame, Trophy, Award, Activity } from "lucide-react";
 import { formatMinutes } from "@/lib/utils";
+import { AveragePerDayData } from "./daily-average-card";
 
 interface StatsCardsProps {
   todayMinutes: number;
@@ -10,6 +11,7 @@ interface StatsCardsProps {
   currentStreak: number;
   longestStreak: number;
   totalMinutes: number;
+  averagePerDay?: AveragePerDayData;
 }
 
 interface StatCardProps {
@@ -31,7 +33,7 @@ function StatCard({ icon: Icon, label, value, sub, color, glow }: StatCardProps)
         </div>
         <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{label}</p>
         <p className="text-2xl font-bold text-white">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+        {sub && <p className="text-xs text-gray-400 mt-1 truncate">{sub}</p>}
       </div>
     </div>
   );
@@ -44,15 +46,27 @@ export function StatsCards({
   currentStreak,
   longestStreak,
   totalMinutes,
+  averagePerDay,
 }: StatsCardsProps) {
+  const activeAvgMinutes = averagePerDay?.activeDaysMinutes ?? 0;
+  const activeDaysCount = averagePerDay?.activeDaysCount ?? 0;
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-4">
       <StatCard
         icon={Clock}
         label="Today"
         value={formatMinutes(todayMinutes)}
         color="bg-violet-600/80"
         glow="bg-gradient-to-br from-violet-600/5 to-transparent"
+      />
+      <StatCard
+        icon={Activity}
+        label="Daily Average"
+        value={activeAvgMinutes > 0 ? `${formatMinutes(activeAvgMinutes)}/day` : "0m/day"}
+        sub={activeDaysCount > 0 ? `${activeDaysCount} active days` : "No history"}
+        color="bg-indigo-600/80"
+        glow="bg-gradient-to-br from-indigo-600/5 to-transparent"
       />
       <StatCard
         icon={Calendar}

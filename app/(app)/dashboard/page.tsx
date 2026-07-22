@@ -43,6 +43,7 @@ const MOTIVATIONAL_QUOTES = [
 export default function DashboardPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [todayMinutes, setTodayMinutes] = useState(0);
+  const [avgDailyMinutes, setAvgDailyMinutes] = useState(0);
   const [todayDate] = useState(getISTDateString());
   const [quote, setQuote] = useState("");
 
@@ -59,6 +60,7 @@ export default function DashboardPage() {
     if (res.ok) {
       const data = await res.json();
       setTodayMinutes(data.totalMinutes ?? 0);
+      setAvgDailyMinutes(data.avgMinutesActiveDays ?? 0);
     }
   }, []);
 
@@ -101,6 +103,7 @@ export default function DashboardPage() {
           todos={todos}
           onSessionComplete={handleSessionComplete}
           todayMinutes={todayMinutes}
+          avgDailyMinutes={avgDailyMinutes}
         />
         <TodoList todos={todos} onUpdate={fetchTodos} />
       </div>

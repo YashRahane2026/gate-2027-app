@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StatsCards } from "@/components/stats-cards";
+import { DailyAverageCard, AveragePerDayData } from "@/components/daily-average-card";
 import { CalendarHeatmap } from "@/components/calendar-heatmap";
 import { StudyCharts } from "@/components/study-charts";
 
@@ -26,6 +27,7 @@ interface StatsData {
   subjectBreakdown: { subject: string; minutes: number }[];
   weeklyChart: { date: string; minutes: number; label: string }[];
   monthlyChart: { date: string; minutes: number; label: string }[];
+  averagePerDay?: AveragePerDayData;
 }
 
 export default function StatsPage() {
@@ -43,8 +45,8 @@ export default function StatsPage() {
     return (
       <div className="space-y-6">
         <div className="h-8 w-48 bg-white/10 rounded-xl animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-4">
+          {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="h-28 bg-white/10 rounded-2xl animate-pulse" />
           ))}
         </div>
@@ -69,7 +71,7 @@ export default function StatsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white mb-1">Stats & Progress</h1>
-        <p className="text-gray-400 text-sm">Your study analytics and performance overview</p>
+        <p className="text-gray-400 text-sm">Your study analytics, historical daily averages, and performance overview</p>
       </div>
 
       <StatsCards
@@ -79,6 +81,12 @@ export default function StatsPage() {
         currentStreak={stats.currentStreak}
         longestStreak={stats.longestStreak}
         totalMinutes={stats.totalMinutes}
+        averagePerDay={stats.averagePerDay}
+      />
+
+      <DailyAverageCard
+        averagePerDay={stats.averagePerDay}
+        todayMinutes={stats.today.totalMinutes}
       />
 
       <CalendarHeatmap heatmap={stats.heatmap} />
