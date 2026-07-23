@@ -6,7 +6,7 @@ import { z } from "zod";
 import { pusherServer, PUSHER_CHANNELS, PUSHER_EVENTS } from "@/lib/pusher";
 
 const sessionSchema = z.object({
-  subject: z.string().min(1),
+  subject: z.string().optional(),
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
   durationMinutes: z.number().int().positive(),
@@ -45,29 +45,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { subject, startTime, endTime, durationMinutes } = parsed.data;
-    const date = getISTDateString(new Date(startTime));
+    const { startTime, endTime, durationMinutes } = parsed.data;
+    const rawSubject = parsed.data.subject ?? "";
+    const subject = rawSubject.trim() || "General Study";
 
-    // Prevent duplicate/overlapping logging within 3 minutes of an existing session
-    const bufferMs = 3 * 60 * 1000;
-    const startWithBuffer = new Date(new Date(startTime).getTime() - bufferMs);
-    const endWithBuffer = new Date(new Date(endTime).getTime() + bufferMs);
+    // Set date string in IST based on when the session ended
+    const date = getISTDateString(new Date(endTime));
 
-    const existingOverlap = await prisma.studySession.findFirst({
+    // Deduplication check: prevent rapid duplicate submissions of identical request within 15 seconds
+    const fifteenSecsAgo = new Date(Date.now() - 15 * 1000);
+    const duplicateSubmission = await prisma.studySession.findFirst({
       where: {
         userId: session.user.id,
-        startTime: {
-          gte: startWithBuffer,
-          lte: endWithBuffer,
+        durationMinutes,
+        createdAt: {
+          gte: fifteenSecsAgo,
         },
       },
     });
 
-    if (existingOverlap) {
-      return NextResponse.json(
-        { error: "A session in this time window is already logged" },
-        { status: 409 }
-      );
+    if (duplicateSubmission) {
+      return NextResponse.json({ session: duplicateSubmission }, { status: 200 });
     }
 
     const studySession = await prisma.studySession.create({

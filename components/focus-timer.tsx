@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, Pause, Square, Timer } from "lucide-react";
+import { Play, Pause, Square, Timer, PlusCircle } from "lucide-react";
 import { formatDuration, formatMinutes, cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { Todo } from "@/types/todo";
@@ -33,8 +33,16 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes, avgDailyMin
 
   const [displaySeconds, setDisplaySeconds] = useState(0);
   const [showModal, setShowModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [customSubject, setCustomSubject] = useState("");
+  
+  // Manual Log state
+  const [manualSubjectSelect, setManualSubjectSelect] = useState("");
+  const [manualCustomSubject, setManualCustomSubject] = useState("");
+  const [manualHours, setManualHours] = useState(1);
+  const [manualMinutes, setManualMinutes] = useState(0);
+
   const { toast } = useToast();
 
   // Sync today's minutes from prop to store
@@ -108,32 +116,99 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes, avgDailyMin
       return;
     }
 
+    const actualEndTime = new Date();
+    const actualStartTime = new Date(actualEndTime.getTime() - elapsedSeconds * 1000);
+    const subjectToSave = (currentSubject && currentSubject.trim()) ? currentSubject.trim() : "General Study";
+
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject: currentSubject,
-          startTime: new Date(startTime || Date.now() - elapsedSeconds * 1000).toISOString(),
-          endTime: new Date().toISOString(),
+          subject: subjectToSave,
+          startTime: actualStartTime.toISOString(),
+          endTime: actualEndTime.toISOString(),
           durationMinutes,
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         toast({
           title: "🎉 Session saved!",
-          description: `${durationMinutes}m of ${currentSubject} recorded.`,
+          description: `${formatMinutes(durationMinutes)} of ${subjectToSave} recorded.`,
         });
         onSessionComplete();
+        stop();
+        setSelectedSubject("");
+        setCustomSubject("");
+      } else {
+        toast({
+          title: "⚠️ Session not saved",
+          description: data.error || "Could not save session. Timer paused, try saving again.",
+          variant: "destructive",
+        });
+        pause();
       }
     } catch {
-      toast({ title: "Failed to save session", variant: "destructive" });
+      toast({
+        title: "Failed to save session",
+        description: "Network error. Timer paused so your study time is safe — please try saving again.",
+        variant: "destructive",
+      });
+      pause();
+    }
+  };
+
+  const confirmManualLog = async () => {
+    const rawSub = manualSubjectSelect === "__custom__" ? manualCustomSubject : manualSubjectSelect;
+    const subjectToSave = rawSub.trim() || "General Study";
+    const totalMinutes = (Number(manualHours) || 0) * 60 + (Number(manualMinutes) || 0);
+
+    if (totalMinutes < 1) {
+      toast({ title: "Please enter valid duration", description: "Session must be at least 1 minute.", variant: "destructive" });
+      return;
     }
 
-    stop();
-    setSelectedSubject("");
-    setCustomSubject("");
+    const actualEndTime = new Date();
+    const actualStartTime = new Date(actualEndTime.getTime() - totalMinutes * 60 * 1000);
+
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subjectToSave,
+          startTime: actualStartTime.toISOString(),
+          endTime: actualEndTime.toISOString(),
+          durationMinutes: totalMinutes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({
+          title: "🎉 Past session logged!",
+          description: `${formatMinutes(totalMinutes)} of ${subjectToSave} added to your stats.`,
+        });
+        onSessionComplete();
+        setShowManualModal(false);
+        setManualHours(1);
+        setManualMinutes(0);
+        setManualSubjectSelect("");
+        setManualCustomSubject("");
+      } else {
+        toast({
+          title: "Failed to log session",
+          description: data.error || "Could not save manual session",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({ title: "Failed to log session", description: "Network error. Please try again.", variant: "destructive" });
+    }
   };
 
   const activeTodos = todos.filter((t) => !t.isCompleted && t.parentId === null);
@@ -141,9 +216,20 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes, avgDailyMin
   return (
     <>
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-full flex flex-col justify-between">
-        <div className="flex items-center gap-2 mb-6">
-          <Timer className="w-5 h-5 text-violet-400" />
-          <h2 className="text-lg font-semibold text-white">Focus Timer</h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Timer className="w-5 h-5 text-violet-400" />
+            <h2 className="text-lg font-semibold text-white">Focus Timer</h2>
+          </div>
+          <button
+            onClick={() => setShowManualModal(true)}
+            id="manual-log-btn"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-violet-300 hover:text-white transition-all"
+            title="Add completed study hours manually"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            Log Past Session
+          </button>
         </div>
 
         {/* Timer display */}
@@ -304,6 +390,85 @@ export function FocusTimer({ todos, onSessionComplete, todayMinutes, avgDailyMin
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium hover:opacity-90 transition-all"
               >
                 Start Timer ▶
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual session log modal */}
+      {showManualModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#13131f] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Log Past Study Session</h3>
+              <p className="text-xs text-gray-400">Manually add completed study hours to your record</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-300 mb-1.5">Subject</label>
+              <select
+                value={manualSubjectSelect}
+                onChange={(e) => setManualSubjectSelect(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-violet-500 transition-all text-sm mb-2"
+              >
+                <option value="" className="bg-[#13131f] text-white">— Select subject —</option>
+                {activeTodos.map((t) => (
+                  <option key={t.id} value={t.text} className="bg-[#13131f] text-white">
+                    {t.text}
+                  </option>
+                ))}
+                <option value="__custom__" className="bg-[#13131f] text-white">✏️ Custom Subject</option>
+              </select>
+
+              {manualSubjectSelect === "__custom__" && (
+                <input
+                  type="text"
+                  value={manualCustomSubject}
+                  onChange={(e) => setManualCustomSubject(e.target.value)}
+                  placeholder="e.g. Algorithms / Math"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all text-sm"
+                />
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Hours</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  value={manualHours}
+                  onChange={(e) => setManualHours(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-violet-500 transition-all text-sm font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1.5">Minutes</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={manualMinutes}
+                  onChange={(e) => setManualMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-violet-500 transition-all text-sm font-semibold"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-3 border-t border-white/10">
+              <button
+                onClick={() => setShowManualModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmManualLog}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium hover:opacity-90 transition-all text-sm"
+              >
+                Save Session ✓
               </button>
             </div>
           </div>
