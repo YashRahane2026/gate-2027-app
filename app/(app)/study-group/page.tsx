@@ -7,62 +7,68 @@ import { StudyGroupChat } from "@/components/study-group-chat";
 import { MotivationTypingCard } from "@/components/motivation-typing-card";
 
 async function getLeaderboardData() {
-  const today = getISTDateString();
+  try {
+    const today = getISTDateString();
 
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      image: true,
-      lastActive: true,
-      focusState: {
-        select: {
-          isRunning: true,
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        lastActive: true,
+        focusState: {
+          select: {
+            isRunning: true,
+          },
+        },
+        sessions: {
+          select: {
+            date: true,
+            durationMinutes: true,
+          },
         },
       },
-      sessions: {
-        select: {
-          date: true,
-          durationMinutes: true,
-        },
-      },
-    },
-  });
+    });
 
-  return users
-    .map((u) => {
-      const todayMinutes = u.sessions
-        .filter((s) => s.date === today)
-        .reduce((sum, s) => sum + s.durationMinutes, 0);
+    return (users || [])
+      .map((u) => {
+        const sessions = u.sessions || [];
+        const todayMinutes = sessions
+          .filter((s) => s.date === today)
+          .reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
 
-      const totalMinutes = u.sessions
-        .reduce((sum, s) => sum + s.durationMinutes, 0);
+        const totalMinutes = sessions
+          .reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
 
-      const isOnline =
-        (u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000) ||
-        (u.focusState?.isRunning === true);
+        const isOnline =
+          (u.lastActive && (Date.now() - new Date(u.lastActive).getTime()) < 3 * 60 * 1000) ||
+          (u.focusState?.isRunning === true);
 
-      return {
-        id: u.id,
-        name: u.name,
-        image: u.image,
-        isOnline: !!isOnline,
-        todayMinutes,
-        totalMinutes,
-      };
-    })
-    .sort((a, b) => {
-      if (b.todayMinutes !== a.todayMinutes) {
-        return b.todayMinutes - a.todayMinutes;
-      }
-      if (b.totalMinutes !== a.totalMinutes) {
-        return b.totalMinutes - a.totalMinutes;
-      }
-      const aVal = a.isOnline ? 1 : 0;
-      const bVal = b.isOnline ? 1 : 0;
-      return bVal - aVal;
-    })
-    .map((u, i) => ({ ...u, rank: i + 1 }));
+        return {
+          id: u.id,
+          name: u.name || "User",
+          image: u.image || null,
+          isOnline: !!isOnline,
+          todayMinutes,
+          totalMinutes,
+        };
+      })
+      .sort((a, b) => {
+        if (b.todayMinutes !== a.todayMinutes) {
+          return b.todayMinutes - a.todayMinutes;
+        }
+        if (b.totalMinutes !== a.totalMinutes) {
+          return b.totalMinutes - a.totalMinutes;
+        }
+        const aVal = a.isOnline ? 1 : 0;
+        const bVal = b.isOnline ? 1 : 0;
+        return bVal - aVal;
+      })
+      .map((u, i) => ({ ...u, rank: i + 1 }));
+  } catch (error) {
+    console.error("Error fetching leaderboard data in Server Component:", error);
+    return [];
+  }
 }
 
 export default async function StudyGroupPage() {
