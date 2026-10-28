@@ -59,7 +59,7 @@ export default function StatsPage() {
 
   // Calculate daily subject breakdown from today's sessions
   const dailyBreakdownMap: Record<string, number> = {};
-  stats.today.sessions.forEach((s) => {
+  (stats.today?.sessions || []).forEach((s) => {
     dailyBreakdownMap[s.subject] = (dailyBreakdownMap[s.subject] || 0) + s.durationMinutes;
   });
   const dailyBreakdown = Object.entries(dailyBreakdownMap).map(([subject, minutes]) => ({
