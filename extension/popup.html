@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GATE 2027 Prep</title>
+  <title>GATE 2027 Prep Tracker</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -11,17 +11,32 @@
     <!-- Header -->
     <div class="header">
       <div class="logo">
-        <div class="logo-icon">📚</div>
+        <div class="logo-icon">🏛️</div>
         <div>
-          <div class="logo-title">GATE 2027</div>
-          <div class="logo-sub">Prep Tracker</div>
+          <div class="logo-title">GATE 2027 Tracker</div>
+          <div class="logo-sub">IISc Bangalore CSE Target</div>
         </div>
+      </div>
+      <div class="header-badge" id="air-badge">AIR &lt; 50</div>
+    </div>
+
+    <!-- Active Account & YouTube Status -->
+    <div class="section account-section" id="account-card">
+      <div class="section-label">👤 Active Account &amp; Access</div>
+      <div class="account-details">
+        <div class="account-email" id="user-email-display">Detecting login...</div>
+        <div class="access-badge" id="access-badge">Checking...</div>
+      </div>
+      <div class="account-switch-row" id="account-switch-row">
+        <input type="email" id="custom-email-input" placeholder="yash.dr2004@gmail.com" />
+        <button id="save-email-btn" title="Save / Verify Email">Set</button>
+        <button id="sync-web-btn" title="Sync from Web App">🔄</button>
       </div>
     </div>
 
     <!-- Countdown -->
     <div class="section countdown-section">
-      <div class="section-label">⏳ Time Until GATE 2027</div>
+      <div class="section-label">⏳ Countdown to GATE 2027</div>
       <div class="countdown">
         <div class="countdown-unit">
           <div class="countdown-value" id="days">--</div>
@@ -47,8 +62,9 @@
 
     <!-- YouTube Blocker Status -->
     <div class="section" id="block-status-container">
-      <div class="section-label">🔒 YouTube Blocker Status</div>
+      <div class="section-label">🛑 YouTube Focus Blocker</div>
       <div class="block-status" id="block-status">Checking focus status...</div>
+      <div class="block-subtext" id="block-subtext">All non-admin accounts blocked with IISc OP protocol.</div>
     </div>
 
     <!-- Today's Focus Time -->

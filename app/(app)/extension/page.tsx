@@ -49,18 +49,18 @@ export default function ExtensionPage() {
     <div className="max-w-4xl mx-auto py-6 px-4 space-y-8 font-sans">
       
       {/* Hero Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-900/50 via-indigo-950/40 to-[#0b0b12] border border-violet-500/10 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-900/50 via-indigo-950/40 to-[#0b0b12] border border-violet-500/20 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
         <div className="space-y-3 max-w-lg text-center md:text-left">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold">
             <Puzzle className="w-3.5 h-3.5" />
-            Chrome Extension
+            Chrome Extension v1.1
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight">
-            Track Progress Anywhere
+            Track Progress &amp; IISc OP Focus Blocker
           </h1>
           <p className="text-gray-400 text-xs md:text-sm leading-relaxed">
-            Get the GATE 2027 Chrome Extension to see your live exam countdown, daily study hours, and checklist items directly in your browser toolbar.
+            Get the GATE 2027 Chrome Extension with real-time exam countdown, daily study hours, todo tracking, and the savage <strong className="text-amber-400 font-semibold">&ldquo;Phir ye tumse na ho payega!&rdquo;</strong> IISc YouTube blocker.
           </p>
         </div>
         
@@ -71,9 +71,39 @@ export default function ExtensionPage() {
           className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-lg shadow-violet-500/25 transition-all hover:scale-[1.02] flex items-center gap-2 group flex-shrink-0"
         >
           <Download className="w-4 h-4" />
-          Download Extension
+          Download Extension v1.1
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </a>
+      </div>
+
+      {/* IISc OP Blocker Feature Callout */}
+      <div className="bg-gradient-to-r from-red-950/30 via-[#161226] to-[#0c0c16] border border-red-500/20 rounded-3xl p-6 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="w-full md:w-48 h-32 rounded-2xl overflow-hidden border border-white/10 flex-shrink-0 shadow-lg relative group">
+            <img 
+              src="/iisc.jpg" 
+              alt="IISc Bangalore" 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
+              <span className="text-[10px] font-bold text-amber-300">🏛️ IISc Bengaluru CSA</span>
+            </div>
+          </div>
+          <div className="space-y-2 text-center md:text-left flex-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-bold uppercase tracking-wider">
+              🛑 Savage Focus Protocol
+            </div>
+            <h2 className="text-lg md:text-xl font-black text-white">
+              &ldquo;Phir ye tumse na ho payega!&rdquo; — IISc OP Blocker
+            </h2>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              Whenever YouTube is opened, distraction feeds and non-study videos are locked with the glorious IISc Bangalore tower photo and a savage reality check. Only official <strong>GO Classes GATE CSE</strong> study lectures are permitted.
+            </p>
+            <div className="inline-block text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl font-medium mt-1">
+              👑 Whitelist Exception: <strong className="text-white">yash.dr2004@gmail.com</strong> has 100% full unrestricted YouTube access.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Grid of Steps */}
