@@ -116,9 +116,9 @@
       document.documentElement.appendChild(overlay);
     }
 
-    const iiscUrl = (chrome.runtime && chrome.runtime.getURL)
-      ? chrome.runtime.getURL("iisc.jpg")
-      : "https://upload.wikimedia.org/wikipedia/commons/a/a4/IISC_Bangalore_01.jpg";
+    const iiscUrl = (typeof IISC_BASE64_IMAGE !== "undefined" && IISC_BASE64_IMAGE)
+      ? IISC_BASE64_IMAGE
+      : "https://gate-2027-app.vercel.app/iisc.jpg";
 
     const email = userInfo.userEmail || "No Account Logged In";
     const appUrl = userInfo.gate_app_url || "https://gate-2027-app.vercel.app";
@@ -143,7 +143,7 @@
 
         <!-- IISc OP Photo Frame -->
         <div class="gate-photo-wrapper">
-          <img src="${iiscUrl}" alt="IISc Bangalore Main Building" class="gate-iisc-img" />
+          <img src="${iiscUrl}" onerror="this.onerror=null;this.src='https://gate-2027-app.vercel.app/iisc.jpg';" alt="IISc Bangalore Main Building" class="gate-iisc-img" />
           <div class="gate-photo-gradient"></div>
           <div class="gate-photo-badge">
             <span>👑</span>

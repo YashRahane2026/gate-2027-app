@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GATE 2027 Prep Tracker & Blocker",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Track your GATE 2027 preparation — countdown, focus time, todos, and IISc OP YouTube focus blocker.",
   "permissions": ["storage", "alarms", "tabs"],
   "action": {
@@ -19,17 +19,6 @@
     "http://localhost:3000/*",
     "https://*.vercel.app/*"
   ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "iisc.jpg",
-        "icons/*"
-      ],
-      "matches": [
-        "*://*.youtube.com/*"
-      ]
-    }
-  ],
   "content_scripts": [
     {
       "matches": [
@@ -44,7 +33,7 @@
         "*://*.youtube.com/*"
       ],
       "css": ["blocker.css"],
-      "js": ["content-blocker.js"],
+      "js": ["iisc-image.js", "content-blocker.js"],
       "run_at": "document_start"
     }
   ]
